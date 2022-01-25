@@ -1,9 +1,84 @@
 #!/usr/bin/env python
 
 import argparse
+import os
+import re
+
+from dateutil.parser import parse as parse_date
+import pandas as pd
+import yaml
 
 import spice_stew
 
+
+class SpiceUtils:
+
+    re_spice_L123_filename = re.compile('''
+        solo
+        _(?P<level>L[123])
+        _spice
+            (?P<concat>-concat)?
+            -(?P<slit>[wn])
+            -(?P<type>(?:ras|sit|exp))
+            (?P<db>-db)?
+            (?P<int>-int)?
+        _(?P<time>\d{8}T\d{6})
+        _(?P<version>V\d{2})
+        _(?P<SPIOBSID>\d+)-(?P<RASTERNO>\d+)
+        \.fits
+        ''',
+        re.VERBOSE)
+
+    def read_spice_uio_catalog():
+        """
+        Read UiO text table SPICE FITS files catalog
+        http://astro-sdc-db.uio.no/vol/spice/fits/spice_catalog.txt
+
+        Return
+        ------
+        pandas.DataFrame
+            Table
+
+        Example queries that can be done on the result:
+
+        * `df[(df.LEVEL == "L2") & (df["DATE-BEG"] >= "2020-11-17") & (df["DATE-BEG"] < "2020-11-18") & (df.XPOSURE > 60.)]`
+        * `df[(df.LEVEL == "L2") & (df.STUDYDES == "Standard dark for cruise phase")]`
+
+        Source: https://spice-wiki.ias.u-psud.fr/doku.php/data:data_analysis_manual:read_catalog_python
+        """
+        cat_file = os.path.join(
+            os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
+            'SPICE/fits/spice_catalog.txt')
+        columns = list(pd.read_csv(cat_file, nrows=0).keys())
+        date_columns = ['DATE-BEG','DATE', 'TIMAQUTC']
+        df = pd.read_table(cat_file, skiprows=1, names=columns, na_values="MISSING",
+                        parse_dates=date_columns, warn_bad_lines=True)
+        df.LEVEL = df.LEVEL.apply(lambda string: string.strip())
+        df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
+        return df
+
+    def parse_filename(filename):
+        m = SpiceUtils.re_spice_L123_filename.match(filename)
+        if m is None:
+            raise ValueError(f'could not parse SPICE filename: {filename}')
+        return m.groupdict()
+
+    def filename_to_date(filename):
+        d = SpiceUtils.parse_filename(filename)
+        return parse_date(d['time'])
+
+    def ias_fullpath(filename):
+        d = SpiceUtils.parse_filename(filename)
+        date = parse_date(d['time'])
+
+        fullpath = os.path.join(
+            os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
+            'SPICE/fits/',
+            'level' + d['level'].lstrip('L'),
+            f'{date.year:04d}/{date.month:02d}/{date.day:02d}',
+            filename)
+
+        return fullpath
 
 def list_spice_files(start_date, end_date, study_name=None):
     ''' Get list of SPICE files
