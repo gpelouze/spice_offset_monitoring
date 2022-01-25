@@ -97,7 +97,17 @@ def list_spice_files(start_date, end_date, study_name=None):
     filenames : list of str
         List of FITS
     '''
-    pass  # TODO
+
+    cat = SpiceUtils.read_spice_uio_catalog()
+    filters = (
+        (cat['DATE-BEG'] > start_date)
+        & (cat['DATE-BEG'] <= end_date)
+        & (cat['LEVEL'] == 'L2')
+        )
+    if study_name is not None:
+        filters &= (cat['STUDY'] == study_name)
+    results = cat[filters]
+    return list(results['FILENAME'])
 
 
 def get_closest_fsi_image(date, band, max_t_dist=6):
@@ -163,6 +173,8 @@ if __name__ == '__main__':
                    help='output directory')
     args = p.parse_args()
 
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # List SPICE files to process
     spice_filenames = list_spice_files(
         args.start_date,
@@ -175,7 +187,7 @@ if __name__ == '__main__':
         # Correct pointing with SPICE kernels
         spice_file_aligned = spice_stew.correct_spice_pointing(
             ssp,
-            spice_file,
+            SpiceUtils.ias_fullpath(spice_file),
             args.output_dir,
             overwrite=False,
             plot_results=True,
