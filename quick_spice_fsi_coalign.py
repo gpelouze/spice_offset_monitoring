@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import os
 import re
 
+from astropy.io import fits
 from dateutil.parser import parse as parse_date
 import pandas as pd
 import yaml
 
+from papy.sol.data.solo_eui import EUISelektorClient
 import spice_stew
 
 
@@ -79,6 +82,7 @@ class SpiceUtils:
 
         return fullpath
 
+
 def list_spice_files(start_date, end_date, study_name=None):
     ''' Get list of SPICE files
 
@@ -109,13 +113,13 @@ def list_spice_files(start_date, end_date, study_name=None):
     return list(results['FILENAME'])
 
 
-def get_closest_fsi_image(date, band, max_t_dist=6):
+def get_closest_fsi_image(spice_file, band, max_t_dist=6):
     ''' Get FSI image closest to a given date
 
     Parameters
     ==========
-    date : str (YYYY-MM-DD)
-        Query date
+    spice_file : str
+        Path to a SPICE FITS file
     band : str ('174' or '304')
         Instrument band
     max_t_dist : float (default: 6)
@@ -127,7 +131,72 @@ def get_closest_fsi_image(date, band, max_t_dist=6):
     filename : str or None
         Closest FSI FITS, if there is one.
     '''
-    pass  # TODO
+    # Get SPICE acquisition midpoint date
+    spice_hdu = fits.open(spice_file)
+    search_date_mid = parse_date(spice_hdu[0].header['DATE-AVG'])
+
+    # Compute date search window
+    max_t_dist = datetime.timedelta(hours=max_t_dist)
+    search_date_min = search_date_mid - max_t_dist
+    search_date_max = search_date_mid + max_t_dist
+
+    # Search FSI data
+    eui_client = EUISelektorClient()
+    base_params = {
+        'level[]': 'L1',
+        'detector[]': 'FSI',
+        'wavelnth[]': band,
+        'imgtype[]': 'solar image',
+        'limit[]': 100,
+        }
+    # Because of the results limit, perform two queries:
+    # - 'before', in descending from search_date_mid to search_date_min,
+    #   yielding the Nth images before search_date_mid
+    # - 'after', in ascending from search_date_mid to search_date_max,
+    #   yielding the Nth images after search_date_mid
+    before_params = {
+        'order[]': 'DESC',
+        'date_begin_start': search_date_min.isoformat().split('T')[0],
+        'date_begin_start_hour': search_date_min.hour,
+        'date_begin_start_minute': search_date_min.minute,
+        'date_begin_end': search_date_mid.isoformat().split('T')[0],
+        'date_begin_end_hour': search_date_mid.hour,
+        'date_begin_end_minute': search_date_mid.minute,
+        }
+    after_params = {
+        'order[]': 'ASC',
+        'date_begin_start': search_date_mid.isoformat().split('T')[0],
+        'date_begin_start_hour': search_date_mid.hour,
+        'date_begin_start_minute': search_date_mid.minute,
+        'date_begin_end': search_date_max.isoformat().split('T')[0],
+        'date_begin_end_hour': search_date_max.hour,
+        'date_begin_end_minute': search_date_max.minute,
+        }
+    before_params.update(base_params)
+    after_params.update(base_params)
+    res_before = eui_client.search(before_params)
+    res_after = eui_client.search(after_params)
+
+    # keep images just before and just after
+    if res_before is not None:
+        res_before = res_before.iloc[0]
+    if res_after is not None:
+        res_after = res_after.iloc[0]
+
+    # return closest image, or None
+    if res_before is None:
+        return res_after  # may be None
+    elif res_after is None:
+        return res_before  # may be None
+    else:
+        date_before = parse_date(res_before['date-beg'])
+        date_after = parse_date(res_after['date-beg'])
+        dt_before = abs((search_date_mid - date_before).total_seconds())
+        dt_after = abs((search_date_mid - date_after).total_seconds())
+        if dt_before < dt_after:
+            return res_before
+        else:
+            return res_after
 
 
 def coalign_spice_fsi_images(spice_file, fsi_file):
@@ -195,7 +264,11 @@ if __name__ == '__main__':
             )
 
         # Get closest FSI image
-        fsi_file = get_closest_fsi_image(spice_file)
+        fsi_file = get_closest_fsi_image(
+            spice_file,
+            '304',
+            max_t_dist=3,
+            )
 
         # Coalign SPICE and FSI image
         coalign = coalign_spice_fsi_images(spice_file_aligned, fsi_file)
