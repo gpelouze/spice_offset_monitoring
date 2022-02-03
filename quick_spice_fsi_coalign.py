@@ -12,7 +12,6 @@ import spice_stew
 
 
 class SpiceUtils:
-
     re_spice_L123_filename = re.compile('''
         solo
         _(?P<level>L[123])
@@ -148,7 +147,7 @@ def coalign_spice_fsi_images(spice_file, fsi_file):
         Coalignment results
     '''
     pass  # TODO
-    return coalign
+    # return coalign
 
 
 def save_coalign_results(coalign):
@@ -184,10 +183,11 @@ if __name__ == '__main__':
 
     ssp = spice_stew.SpiceSpicePointing()
     for spice_file in spice_filenames:
+        spice_file = SpiceUtils.ias_fullpath(spice_file)
         # Correct pointing with SPICE kernels
         spice_file_aligned = spice_stew.correct_spice_pointing(
             ssp,
-            SpiceUtils.ias_fullpath(spice_file),
+            spice_file,
             args.output_dir,
             overwrite=False,
             plot_results=True,
