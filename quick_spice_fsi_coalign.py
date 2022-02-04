@@ -228,7 +228,8 @@ def get_fsi_image(spice_file, band, output_dir, max_t_dist=6):
             search_date, band,
             max_t_dist,
             )
-        fsi_image = fsi_image.to_dict()
+        if fsi_image is not None:
+            fsi_image = fsi_image.to_dict()
         with open(cache_file, 'w') as f:
             yaml.safe_dump(fsi_image, f, sort_keys=False)
         return fsi_image
