@@ -113,32 +113,26 @@ def list_spice_files(start_date, end_date, study_name=None):
     return list(results['FILENAME'])
 
 
-def get_closest_fsi_image(spice_file, band, max_t_dist=6):
+def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
     ''' Get FSI image closest to a given date
 
     Parameters
     ==========
-    spice_file : str
-        Path to a SPICE FITS file
+    search_date : datetime.datetime
+        Query date
     band : str ('174' or '304')
         Instrument band
-    max_t_dist : float (default: 6)
-        Maximum time distance in hour. If no file exists within [date -
-        max_t_dist, date + max_t_dist], return None.
+    max_t_dist : datetime.timedelta
+        Query window size: FSI images are searched within
+        [date - max_t_dist, date + max_t_dist].
 
     Returns
     =======
     filename : str or None
         Closest FSI FITS, if there is one.
     '''
-    # Get SPICE acquisition midpoint date
-    spice_hdu = fits.open(spice_file)
-    search_date_mid = parse_date(spice_hdu[0].header['DATE-AVG'])
-
-    # Compute date search window
-    max_t_dist = datetime.timedelta(hours=max_t_dist)
-    search_date_min = search_date_mid - max_t_dist
-    search_date_max = search_date_mid + max_t_dist
+    search_date_min = search_date - max_t_dist
+    search_date_max = search_date + max_t_dist
 
     # Search FSI data
     eui_client = EUISelektorClient()
@@ -150,24 +144,24 @@ def get_closest_fsi_image(spice_file, band, max_t_dist=6):
         'limit[]': 100,
         }
     # Because of the results limit, perform two queries:
-    # - 'before', in descending from search_date_mid to search_date_min,
-    #   yielding the Nth images before search_date_mid
-    # - 'after', in ascending from search_date_mid to search_date_max,
-    #   yielding the Nth images after search_date_mid
+    # - 'before', in descending from search_date to search_date_min,
+    #   yielding the Nth images before search_date
+    # - 'after', in ascending from search_date to search_date_max,
+    #   yielding the Nth images after search_date
     before_params = {
         'order[]': 'DESC',
         'date_begin_start': search_date_min.isoformat().split('T')[0],
         'date_begin_start_hour': search_date_min.hour,
         'date_begin_start_minute': search_date_min.minute,
-        'date_begin_end': search_date_mid.isoformat().split('T')[0],
-        'date_begin_end_hour': search_date_mid.hour,
-        'date_begin_end_minute': search_date_mid.minute,
+        'date_begin_end': search_date.isoformat().split('T')[0],
+        'date_begin_end_hour': search_date.hour,
+        'date_begin_end_minute': search_date.minute,
         }
     after_params = {
         'order[]': 'ASC',
-        'date_begin_start': search_date_mid.isoformat().split('T')[0],
-        'date_begin_start_hour': search_date_mid.hour,
-        'date_begin_start_minute': search_date_mid.minute,
+        'date_begin_start': search_date.isoformat().split('T')[0],
+        'date_begin_start_hour': search_date.hour,
+        'date_begin_start_minute': search_date.minute,
         'date_begin_end': search_date_max.isoformat().split('T')[0],
         'date_begin_end_hour': search_date_max.hour,
         'date_begin_end_minute': search_date_max.minute,
@@ -191,12 +185,53 @@ def get_closest_fsi_image(spice_file, band, max_t_dist=6):
     else:
         date_before = parse_date(res_before['date-beg'])
         date_after = parse_date(res_after['date-beg'])
-        dt_before = abs((search_date_mid - date_before).total_seconds())
-        dt_after = abs((search_date_mid - date_after).total_seconds())
+        dt_before = abs((search_date - date_before).total_seconds())
+        dt_after = abs((search_date - date_after).total_seconds())
         if dt_before < dt_after:
             return res_before
         else:
             return res_after
+
+
+def get_fsi_image(spice_file, band, output_dir, max_t_dist=6):
+    ''' Get FSI image to coalign with a SPICE file
+
+    Parameters
+    ==========
+    spice_file : str
+        Path to a SPICE FITS file
+    band : str ('174' or '304')
+        Instrument band
+    output_dir : str
+        Output directory
+    max_t_dist : float (default: 6)
+        Maximum time distance in hour. If no file exists within [date -
+        max_t_dist, date + max_t_dist], return None.
+
+    Returns
+    =======
+    filename : str or None
+        Closest FSI FITS, if there is one.
+    '''
+
+    spice_file_base = os.path.splitext(os.path.basename(spice_file))[0]
+    cache_file = f'{output_dir}/{spice_file_base}_fsi_info.yml'
+
+    if os.path.isfile(cache_file):
+        with open(cache_file, 'r') as f:
+            return yaml.safe_load(f)
+    else:
+        spice_hdu = fits.open(spice_file)
+        search_date = parse_date(spice_hdu[0].header['DATE-AVG'])
+        max_t_dist = datetime.timedelta(hours=max_t_dist)
+        fsi_image = get_closest_fsi_image_from_selektor(
+            search_date, band,
+            max_t_dist,
+            )
+        fsi_image = fsi_image.to_dict()
+        with open(cache_file, 'w') as f:
+            yaml.safe_dump(fsi_image, f, sort_keys=False)
+        return fsi_image
 
 
 def coalign_spice_fsi_images(spice_file, fsi_file):
@@ -264,9 +299,10 @@ if __name__ == '__main__':
             )
 
         # Get closest FSI image
-        fsi_file = get_closest_fsi_image(
+        fsi_file = get_fsi_image(
             spice_file,
             '304',
+            args.output_dir,
             max_t_dist=3,
             )
 
