@@ -5,9 +5,12 @@ import datetime
 import os
 import re
 
+from astropy import units as u
+from astropy import wcs
 from astropy.io import fits
 from dateutil.parser import parse as parse_date
 import pandas as pd
+import scipy.interpolate as si
 import yaml
 
 from papy.sol.data.solo_eui import EUISelektorClient
@@ -242,24 +245,191 @@ def get_fsi_image(spice_file, band, output_dir, max_t_dist=6):
         return fsi_image
 
 
-def coalign_spice_fsi_images(spice_file, fsi_file):
+def get_spice_image_data(filename, window):
+    ''' Return SPICE image data
+
+    Parameters
+    ==========
+    filename : str
+        Path to a FITS file containing SPICE intensity maps coaligned with
+        spice_stew.
+    spice_window : str
+        SPICE window name
+
+    Returns
+    =======
+    img : 2D array
+        Image data
+    header : astropy.io.fits.Header
+        FITS header
+    '''
+    hdulist = fits.open(filename)
+    hdu = hdulist[window]
+
+    img = np.squeeze(hdu.data)  # remove 1-length dimensions, ie t and wvl
+    if img.ndim != 2:
+        msg = f'invalid image shape {img.shape} for {filename}'
+        raise ValueError(msg)
+
+    return img, hdu.header
+
+
+def get_fsi_image_data(filename):
+    ''' Return FSI imge data
+
+    Parameters
+    ==========
+    filename : dict
+        Path to FSI file FITS.
+
+    Returns
+    =======
+    img : 2D array
+        Image data
+    header : astropy.io.fits.Header
+        FITS header
+    '''
+    hdulist = fits.open(filename)
+    hdu = hdulist[0]
+    return hdu.data, hdu.header
+
+
+def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
     ''' Coalign SPICE and FSI images
 
     Parameters
     ==========
-    spice_file : str
+    spice_file_aligned : str
         Path to a FITS file containing SPICE intensity maps coaligned with
         spice_stew.
-    fsi_file : str
-        Path to a FSI FITS file.
+    spice_window : str
+        SPICE window name
+    filename : dict
+        Path to FSI file FITS.
 
     Returns
     =======
     coalign : dict
         Coalignment results
     '''
-    pass  # TODO
-    # return coalign
+
+    spice_img, spice_header = get_spice_image_data(
+        spice_file_aligned,
+        spice_window,
+        )
+    print(spice_file_aligned, spice_img.shape)
+    return
+    fsi_img, fsi_header = get_fsi_image_data(fsi_file)
+
+    # Cut spice image
+    # cut-off sides  FIXME: correct values?
+    iymin = 130
+    iymax = 670
+    spice_img = spice_img[iymin:iymax]
+
+    # SPICE WCS
+    wcs_spice = wcs.WCS(spice_header)
+    # px coordinates of SPICE cut zone
+    ny_spice, nx_spice = spice_img.shape
+    x_spice = np.arange(0, nx_spice)
+    y_spice = np.arange(iymin, iymax)
+    w_spice = np.array([0])
+    t_spice = np.array([1])
+    assert y_spice.size <= ny_spice
+    px_spice = np.meshgrid(x_spice, y_spice, w_spice, t_spice)
+    px_spice = np.moveaxis(px_spice, 0, -1)
+    # convert to world coordinates
+    world_spice = wcs_spice.wcs_pix2world(px_spice.reshape(-1, 4), 0)
+    world_spice = world_spice.reshape((y_spice.size, x_spice.size, 1, 1, 4))
+    assert px_spice.shape == world_spice.shape
+    Tx_spice = u.Quantity(world_spice[:, :, 0, 0, 0], wcs_spice.world_axis_units[0])
+    Ty_spice = u.Quantity(world_spice[:, :, 0, 0, 1], wcs_spice.world_axis_units[1])
+    # put angles between ]-180, +180] deg
+    pi = u.Quantity(180, 'deg')
+    Tx_spice = - ((- Tx_spice + pi) % (2*pi) - pi)
+    Ty_spice = - ((- Ty_spice + pi) % (2*pi) - pi)
+    # convert to arcsec
+    Tx_spice = Tx_spice.to('arcsec').value
+    Ty_spice = Ty_spice.to('arcsec').value
+
+    # SPICE WCS
+    wcs_fsi = wcs.WCS(fsi_header)
+    # px coordinates of SPICE cut zone
+    ny_fsi, nx_fsi = fsi_img.shape
+    x_fsi = np.arange(0, nx_fsi)
+    y_fsi = np.arange(0, ny_fsi)
+    px_fsi = np.meshgrid(x_fsi, y_fsi)
+    px_fsi = np.moveaxis(px_fsi, 0, -1)
+    # convert to world coordinates
+    world_fsi = wcs_fsi.wcs_pix2world(px_fsi.reshape(-1, 2), 0)
+    world_fsi = world_fsi.reshape((y_fsi.size, x_fsi.size, 2))
+    assert px_fsi.shape == world_fsi.shape
+    Tx_fsi = u.Quantity(world_fsi[:, :, 0], wcs_fsi.world_axis_units[0])
+    Ty_fsi = u.Quantity(world_fsi[:, :, 1], wcs_fsi.world_axis_units[1])
+    # put angles between ]-180, +180] deg
+    pi = u.Quantity(180, 'deg')
+    Tx_fsi = - ((- Tx_fsi + pi) % (2*pi) - pi)
+    Ty_fsi = - ((- Ty_fsi + pi) % (2*pi) - pi)
+    # convert to arcsec
+    Tx_fsi = Tx_fsi.to('arcsec').value
+    Ty_fsi = Ty_fsi.to('arcsec').value
+
+    # Generate common coordinates
+    common_Txy_size = 4  # arcsec
+    Tx_common = np.arange(
+        Tx_spice.min(),
+        Tx_spice.max() + common_Txy_size,
+        common_Txy_size,
+        )
+    Ty_common = np.arange(
+        Ty_spice.min(),
+        Ty_spice.max() + common_Txy_size,
+        common_Txy_size,
+        )
+    Tx_common, Ty_common = np.meshgrid(Tx_common, Ty_common)
+
+    # Pre-cut FSI
+    ixmin_fsi = np.where(Tx_fsi > Tx_common.min())[1].min() - 10
+    ixmax_fsi = np.where(Tx_fsi < Tx_common.max())[1].max() + 10
+    iymin_fsi = np.where(Ty_fsi > Ty_common.min())[0].min() - 10
+    iymax_fsi = np.where(Ty_fsi < Ty_common.max())[0].max() + 10
+    fsi_img = fsi_img[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
+    Tx_fsi = Tx_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
+    Ty_fsi = Ty_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
+
+    # Remap
+    def remap(Tx, Ty, img, new_Tx, new_Ty):
+        points = np.array([Tx, Ty]).reshape((2, -1)).T
+        values = img.flatten()
+        new_points = np.array([new_Tx, new_Ty]).reshape((2, -1)).T
+        new_values = si.griddata(points, values, new_points)
+        new_values = new_values.reshape(new_Tx.shape)
+        return new_values
+    new_spice_img = remap(Tx_spice, Ty_spice, spice_img, Tx_common, Ty_common)
+    new_fsi_img = remap(Tx_fsi, Ty_fsi, fsi_img, Tx_common, Ty_common)
+    # TODO: pre-cut FSI data for performance?
+
+    plt.clf()
+    def fsi_norm(img):
+        return plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(img, 1)]),
+            vmax=np.max([10, np.nanpercentile(img, 99.9)]),
+            )
+    def spice_norm(img):
+        return plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(img, 20)]),
+            vmax=np.max([10, np.nanpercentile(img, 99)]),
+            )
+    plt.subplot(121)
+    plt.imshow(new_fsi_img, norm=fsi_norm(new_fsi_img))
+    plt.colorbar()
+    plt.subplot(122)
+    plt.imshow(new_spice_img, norm=spice_norm(new_spice_img))
+    plt.colorbar()
+    plt.savefig('output/truc.pdf')
+
+    coalign = None
+    return coalign
 
 
 def save_coalign_results(coalign):
@@ -319,7 +489,11 @@ if __name__ == '__main__':
         fsi_file = EuiUtils.ias_fullpath(fsi_file['filepath'])
 
         # Coalign SPICE and FSI image
-        coalign = coalign_spice_fsi_images(spice_file_aligned, fsi_file)
+        coalign = coalign_spice_fsi_images(
+            spice_file_aligned,
+            'Ly-gamma-CIII group bin (1/4)',
+            fsi_file,
+            )
 
         # Write output
         save_coalign_results(coalign)
