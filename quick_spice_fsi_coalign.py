@@ -83,6 +83,13 @@ class SpiceUtils:
         return fullpath
 
 
+class EuiUtils:
+    def ias_fullpath(rob_fullpath):
+        p = rob_fullpath.lstrip('/data/solo-eui/internal/')
+        p = '/archive/SOLAR-ORBITER/EUI/data_internal/' + p
+        return p
+
+
 def list_spice_files(start_date, end_date, study_name=None):
     ''' Get list of SPICE files
 
@@ -306,6 +313,10 @@ if __name__ == '__main__':
             args.output_dir,
             max_t_dist=3,
             )
+        if fsi_file is None:
+            print('No FSI image found for {spice_file}, skipping')
+            continue
+        fsi_file = EuiUtils.ias_fullpath(fsi_file['filepath'])
 
         # Coalign SPICE and FSI image
         coalign = coalign_spice_fsi_images(spice_file_aligned, fsi_file)
