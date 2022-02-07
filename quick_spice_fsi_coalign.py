@@ -317,8 +317,6 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
         spice_file_aligned,
         spice_window,
         )
-    print(spice_file_aligned, spice_img.shape)
-    return
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
     # Cut spice image
@@ -376,17 +374,18 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
 
     # Generate common coordinates
     common_Txy_size = 4  # arcsec
-    Tx_common = np.arange(
-        Tx_spice.min(),
-        Tx_spice.max() + common_Txy_size,
+    common_Txy_pad = 200  # arcsec
+    Tx_common_1d = np.arange(
+        Tx_spice.min() - common_Txy_pad,
+        Tx_spice.max() + common_Txy_size + common_Txy_pad,
         common_Txy_size,
         )
-    Ty_common = np.arange(
-        Ty_spice.min(),
-        Ty_spice.max() + common_Txy_size,
+    Ty_common_1d = np.arange(
+        Ty_spice.min() - common_Txy_pad,
+        Ty_spice.max() + common_Txy_size + common_Txy_pad,
         common_Txy_size,
         )
-    Tx_common, Ty_common = np.meshgrid(Tx_common, Ty_common)
+    Tx_common, Ty_common = np.meshgrid(Tx_common_1d, Ty_common_1d)
 
     # Pre-cut FSI
     ixmin_fsi = np.where(Tx_fsi > Tx_common.min())[1].min() - 10
@@ -407,25 +406,48 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
         return new_values
     new_spice_img = remap(Tx_spice, Ty_spice, spice_img, Tx_common, Ty_common)
     new_fsi_img = remap(Tx_fsi, Ty_fsi, fsi_img, Tx_common, Ty_common)
-    # TODO: pre-cut FSI data for performance?
 
+    # debug plots  # FIXME
+    import papy.plot
     plt.clf()
-    def fsi_norm(img):
-        return plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(img, 1)]),
-            vmax=np.max([10, np.nanpercentile(img, 99.9)]),
+    fsi_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(new_fsi_img, 1)]),
+            vmax=np.max([10, np.nanpercentile(new_fsi_img, 99.9)]),
             )
-    def spice_norm(img):
-        return plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(img, 20)]),
-            vmax=np.max([10, np.nanpercentile(img, 99)]),
+    spice_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(new_spice_img, 0)]),
+            vmax=np.max([10, np.nanpercentile(new_spice_img, 99)]),
             )
     plt.subplot(121)
-    plt.imshow(new_fsi_img, norm=fsi_norm(new_fsi_img))
-    plt.colorbar()
+    papy.plot.plot_map(
+        plt.gca(),
+        new_fsi_img,
+        coordinates=[Tx_common_1d, Ty_common_1d],
+        regularity_threshold=.2,
+        norm=fsi_norm,
+        )
+    plt.contour(
+        Tx_common_1d, Ty_common_1d,
+        new_spice_img,
+        levels=[spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin))],
+        colors='w',
+        linewidths=.5,
+        )
+    plt.contour(
+        Tx_common_1d, Ty_common_1d,
+        np.isnan(new_spice_img).astype(float),
+        levels=[.5],
+        colors='w',
+        linewidths=.5,
+        )
     plt.subplot(122)
-    plt.imshow(new_spice_img, norm=spice_norm(new_spice_img))
-    plt.colorbar()
+    papy.plot.plot_map(
+        plt.gca(),
+        new_spice_img,
+        coordinates=[Tx_common_1d, Ty_common_1d],
+        regularity_threshold=.2,
+        norm=spice_norm,
+        )
     plt.savefig('output/truc.pdf')
 
     coalign = None
@@ -487,6 +509,8 @@ if __name__ == '__main__':
             print('No FSI image found for {spice_file}, skipping')
             continue
         fsi_file = EuiUtils.ias_fullpath(fsi_file['filepath'])
+
+        # TODO: Convert FSI image to L2
 
         # Coalign SPICE and FSI image
         coalign = coalign_spice_fsi_images(
