@@ -339,6 +339,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     new_spice_filename = os.path.join(output_dir, new_spice_filename)
     new_fsi_filename = f'{basename}_coalign_fsi_img.fits'
     new_fsi_filename = os.path.join(output_dir, new_fsi_filename)
+    plot_filename = f'{basename}_coalign.pdf'
+    plot_filename = os.path.join(output_dir, plot_filename)
 
     if os.path.isfile(new_fsi_filename) and os.path.isfile(new_spice_filename):
         print(f'Coalign images exist for: {basename}, skipping')
@@ -453,7 +455,54 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     fsi_hdu = fits.PrimaryHDU(new_fsi_img, header=w_common.to_header())
     fsi_hdu.writeto(new_fsi_filename)
 
+    plot_images(new_spice_img, new_fsi_img, w_common, plot_filename)
+
     return new_spice_filename, new_fsi_filename
+
+
+def plot_images(spice_img, fsi_img, wcs, filename):
+    import sunpy.map
+
+    spice_map = sunpy.map.Map(spice_img, wcs)
+    fsi_map = sunpy.map.Map(fsi_img, wcs)
+    spice_fov_map = sunpy.map.Map(np.isnan(spice_img).astype(float), wcs)
+    fsi_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(fsi_map.data, 1)]),
+            vmax=np.max([10, np.nanpercentile(fsi_map.data, 99.9)]),
+            )
+    spice_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(spice_map.data, 0)]),
+            vmax=np.max([10, np.nanpercentile(spice_map.data, 99)]),
+            )
+
+    plt.clf()
+    ax1 = plt.subplot(121, projection=fsi_map)
+    fsi_map.plot(
+        norm=fsi_norm,
+        cmap='viridis',
+        )
+    ax2 = plt.subplot(122, projection=spice_map)
+    spice_map.plot(
+        norm=spice_norm,
+        cmap='viridis',
+        )
+    contours = spice_map.contour(
+        spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin)),
+        )
+    contours_fov = spice_fov_map.contour(.5)
+    for ax in [ax1, ax2]:
+        for c in contours:
+            ax.plot_coord(c, color='w', linewidth=.5)
+    if contours_fov:
+        ax1.plot_coord(contours_fov[0], color='w', linewidth=.5)
+    ax1.set_xlabel('$\\theta_x$')
+    ax1.set_ylabel('$\\theta_y$')
+    ax2.set_xlabel('$\\theta_x$')
+    ax2.set_ylabel(' ')
+    ax1.set_title(' ')
+    ax2.set_title(' ')
+    plt.tight_layout()
+    plt.savefig(filename)
 
 
 def coalign_spice_fsi_images(spice_file, fsi_file, output_dir):
@@ -468,6 +517,8 @@ def coalign_spice_fsi_images(spice_file, fsi_file, output_dir):
         Output directory
     '''
     pass  # TODO
+
+
 
 
 if __name__ == '__main__':
