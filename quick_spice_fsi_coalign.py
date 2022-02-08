@@ -13,6 +13,7 @@ import pandas as pd
 import scipy.interpolate as si
 import yaml
 
+from eui.euiprep import euiprep
 from papy.sol.data.solo_eui import EUISelektorClient
 import spice_stew
 
@@ -92,6 +93,11 @@ class EuiUtils:
         p = '/archive/SOLAR-ORBITER/EUI/data_internal/' + p
         return p
 
+    def local_L2_path(output_dir, fsi_file_L1):
+        base = os.path.basename(fsi_file_L1)
+        base = base.replace('L1', 'L2')
+        return os.path.join(output_dir, base)
+
 
 def list_spice_files(start_date, end_date, study_name=None):
     ''' Get list of SPICE files
@@ -123,8 +129,8 @@ def list_spice_files(start_date, end_date, study_name=None):
     return list(results['FILENAME'])
 
 
-def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
-    ''' Get FSI image closest to a given date
+def get_closest_fsi_L1_file_from_selektor(search_date, band, max_t_dist):
+    ''' Get FSI L1 file closest to a given date
 
     Parameters
     ==========
@@ -133,7 +139,7 @@ def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
     band : str ('174' or '304')
         Instrument band
     max_t_dist : datetime.timedelta
-        Query window size: FSI images are searched within
+        Query window size: FSI files are searched within
         [date - max_t_dist, date + max_t_dist].
 
     Returns
@@ -155,9 +161,9 @@ def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
         }
     # Because of the results limit, perform two queries:
     # - 'before', in descending from search_date to search_date_min,
-    #   yielding the Nth images before search_date
+    #   yielding the Nth file before search_date
     # - 'after', in ascending from search_date to search_date_max,
-    #   yielding the Nth images after search_date
+    #   yielding the Nth file after search_date
     before_params = {
         'order[]': 'DESC',
         'date_begin_start': search_date_min.isoformat().split('T')[0],
@@ -181,13 +187,13 @@ def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
     res_before = eui_client.search(before_params)
     res_after = eui_client.search(after_params)
 
-    # keep images just before and just after
+    # keep files just before and just after
     if res_before is not None:
         res_before = res_before.iloc[0]
     if res_after is not None:
         res_after = res_after.iloc[0]
 
-    # return closest image, or None
+    # return closest file, or None
     if res_before is None:
         return res_after  # may be None
     elif res_after is None:
@@ -203,8 +209,8 @@ def get_closest_fsi_image_from_selektor(search_date, band, max_t_dist):
             return res_after
 
 
-def get_fsi_image(spice_file, band, output_dir, max_t_dist=6):
-    ''' Get FSI image to coalign with a SPICE file
+def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
+    ''' Get FSI L1 file to coalign with a SPICE file
 
     Parameters
     ==========
@@ -234,15 +240,29 @@ def get_fsi_image(spice_file, band, output_dir, max_t_dist=6):
         spice_hdu = fits.open(spice_file)
         search_date = parse_date(spice_hdu[0].header['DATE-AVG'])
         max_t_dist = datetime.timedelta(hours=max_t_dist)
-        fsi_image = get_closest_fsi_image_from_selektor(
+        fsi_file = get_closest_fsi_L1_file_from_selektor(
             search_date, band,
             max_t_dist,
             )
-        if fsi_image is not None:
-            fsi_image = fsi_image.to_dict()
+        if fsi_file is not None:
+            fsi_file = fsi_file.to_dict()
         with open(cache_file, 'w') as f:
-            yaml.safe_dump(fsi_image, f, sort_keys=False)
-        return fsi_image
+            yaml.safe_dump(fsi_file, f, sort_keys=False)
+        return fsi_file
+
+
+def gen_fsi_L2(fsi_file_L1, output_dir):
+    fsi_file_L2 = EuiUtils.local_L2_path(output_dir, fsi_file_L1)
+    if os.path.isfile(fsi_file_L2):
+        print(f'FSI L2 file exists: {fsi_file_L2}, exiting')
+    else:
+        euimap_L2 = euiprep(
+            fsi_file_L1,
+            auto=True,
+            )
+        euimap_L2.save_fits(fsi_file_L2)
+    return fsi_file_L2
+
 
 
 def get_spice_image_data(filename, window):
@@ -499,24 +519,26 @@ if __name__ == '__main__':
             )
 
         # Get closest FSI image
-        fsi_file = get_fsi_image(
+        fsi_file_L1 = get_fsi_L1(
             spice_file,
             '304',
             args.output_dir,
             max_t_dist=3,
             )
-        if fsi_file is None:
+        if fsi_file_L1 is None:
             print('No FSI image found for {spice_file}, skipping')
             continue
-        fsi_file = EuiUtils.ias_fullpath(fsi_file['filepath'])
+        fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
 
-        # TODO: Convert FSI image to L2
+        # Convert FSI image to L2
+        fsi_file_L2 = gen_fsi_L2(fsi_file_L1, args.output_dir)
+
 
         # Coalign SPICE and FSI image
         coalign = coalign_spice_fsi_images(
             spice_file_aligned,
             'Ly-gamma-CIII group bin (1/4)',
-            fsi_file,
+            fsi_file_L2,
             )
 
         # Write output
