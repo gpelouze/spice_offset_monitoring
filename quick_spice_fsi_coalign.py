@@ -259,6 +259,7 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
         euimap_L2 = euiprep(
             fsi_file_L1,
             auto=True,
+            save_L2=False,
             )
         euimap_L2.save_fits(fsi_file_L2)
     return fsi_file_L2
