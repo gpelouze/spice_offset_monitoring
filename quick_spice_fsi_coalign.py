@@ -425,6 +425,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     w_common.wcs.crval = [Tx_common_1d[int(w_common.wcs.crpix[0])],
                           Ty_common_1d[int(w_common.wcs.crpix[1])]]
     w_common.wcs.ctype = ['HPLN-TAN', 'HPLT-TAN']
+    w_common.wcs.cunit = ['arcsec', 'arcsec']
 
     # Pre-cut FSI
     ixmin_fsi = np.where(Tx_fsi > Tx_common.min())[1].min() - 10
