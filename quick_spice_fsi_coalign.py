@@ -314,13 +314,13 @@ def get_fsi_image_data(filename):
     return hdu.data, hdu.header
 
 
-def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
-    ''' Coalign SPICE and FSI images
+def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
+    ''' Generate SPICE and FSI images that can be coaligned together
 
     Parameters
     ==========
-    spice_file_aligned : str
-        Path to a FITS file containing SPICE intensity maps coaligned with
+    spice_file : str
+        Path to a FITS file containing SPICE intensity maps corrected with
         spice_stew.
     spice_window : str
         SPICE window name
@@ -329,12 +329,22 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
 
     Returns
     =======
-    coalign : dict
-        Coalignment results
+    spice_img : str
+    fsi_img : str
+        Path to FITS images to coalign
     '''
+    basename = os.path.basename(spice_file_aligned).rstrip('_remapped_img.fits')
+    new_spice_filename = f'{basename}_coalign_spice_img.fits'
+    new_spice_filename = os.path.join(output_dir, new_spice_filename)
+    new_fsi_filename = f'{basename}_coalign_fsi_img.fits'
+    new_fsi_filename = os.path.join(output_dir, new_fsi_filename)
+
+    if os.path.isfile(new_fsi_filename) and os.path.isfile(new_spice_filename):
+        print(f'Coalign images exist for: {basename}, skipping')
+        return new_spice_filename, new_fsi_filename
 
     spice_img, spice_header = get_spice_image_data(
-        spice_file_aligned,
+        spice_file,
         spice_window,
         )
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
@@ -407,6 +417,14 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
         )
     Tx_common, Ty_common = np.meshgrid(Tx_common_1d, Ty_common_1d)
 
+    # Common WCS
+    w_common = wcs.WCS(naxis=2)
+    w_common.wcs.cdelt = [common_Txy_size, common_Txy_size]
+    w_common.wcs.crpix = [Tx_common_1d.size//2, Ty_common_1d.size//2]
+    w_common.wcs.crval = [Tx_common_1d[int(w_common.wcs.crpix[0])],
+                          Ty_common_1d[int(w_common.wcs.crpix[1])]]
+    w_common.wcs.ctype = ['HPLN-TAN', 'HPLT-TAN']
+
     # Pre-cut FSI
     ixmin_fsi = np.where(Tx_fsi > Tx_common.min())[1].min() - 10
     ixmax_fsi = np.where(Tx_fsi < Tx_common.max())[1].max() + 10
@@ -427,60 +445,25 @@ def coalign_spice_fsi_images(spice_file_aligned, spice_window, fsi_file):
     new_spice_img = remap(Tx_spice, Ty_spice, spice_img, Tx_common, Ty_common)
     new_fsi_img = remap(Tx_fsi, Ty_fsi, fsi_img, Tx_common, Ty_common)
 
-    # debug plots  # FIXME
-    import papy.plot
-    plt.clf()
-    fsi_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(new_fsi_img, 1)]),
-            vmax=np.max([10, np.nanpercentile(new_fsi_img, 99.9)]),
-            )
-    spice_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(new_spice_img, 0)]),
-            vmax=np.max([10, np.nanpercentile(new_spice_img, 99)]),
-            )
-    plt.subplot(121)
-    papy.plot.plot_map(
-        plt.gca(),
-        new_fsi_img,
-        coordinates=[Tx_common_1d, Ty_common_1d],
-        regularity_threshold=.2,
-        norm=fsi_norm,
-        )
-    plt.contour(
-        Tx_common_1d, Ty_common_1d,
-        new_spice_img,
-        levels=[spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin))],
-        colors='w',
-        linewidths=.5,
-        )
-    plt.contour(
-        Tx_common_1d, Ty_common_1d,
-        np.isnan(new_spice_img).astype(float),
-        levels=[.5],
-        colors='w',
-        linewidths=.5,
-        )
-    plt.subplot(122)
-    papy.plot.plot_map(
-        plt.gca(),
-        new_spice_img,
-        coordinates=[Tx_common_1d, Ty_common_1d],
-        regularity_threshold=.2,
-        norm=spice_norm,
-        )
-    plt.savefig('output/truc.pdf')
+    # Save FITS
+    spice_hdu = fits.PrimaryHDU(new_spice_img, header=w_common.to_header())
+    spice_hdu.writeto(new_spice_filename)
+    fsi_hdu = fits.PrimaryHDU(new_fsi_img, header=w_common.to_header())
+    fsi_hdu.writeto(new_fsi_filename)
 
-    coalign = None
-    return coalign
+    return new_spice_filename, new_fsi_filename
 
 
-def save_coalign_results(coalign):
-    ''' Save coalignment results
+def coalign_spice_fsi_images(spice_file, fsi_file, output_dir):
+    ''' Coalign SPICE and FSI images
 
     Parameters
     ==========
-    coalign : dict
-        Coalignment results
+    spice_img : str
+    fsi_img : str
+        Path to FITS images to coalign, written by `gen_images_to_coalign()`
+    output_dir : str
+        Output directory
     '''
     pass  # TODO
 
@@ -507,6 +490,8 @@ if __name__ == '__main__':
 
     ssp = spice_stew.SpiceSpicePointing()
     for spice_file in spice_filenames:
+        print('\nProcessing', spice_file)
+
         spice_file = SpiceUtils.ias_fullpath(spice_file)
         # Correct pointing with SPICE kernels
         spice_file_aligned = spice_stew.correct_spice_pointing(
@@ -533,13 +518,12 @@ if __name__ == '__main__':
         # Convert FSI image to L2
         fsi_file_L2 = gen_fsi_L2(fsi_file_L1, args.output_dir)
 
-
-        # Coalign SPICE and FSI image
-        coalign = coalign_spice_fsi_images(
+        # Generate images to coalign
+        spice_img, fsi_img = gen_images_to_coalign(
             spice_file_aligned,
             'Ly-gamma-CIII group bin (1/4)',
             fsi_file_L2,
+            args.output_dir,
             )
 
-        # Write output
-        save_coalign_results(coalign)
+        coalign_spice_fsi_images(spice_img, fsi_img, args.output_dir)
