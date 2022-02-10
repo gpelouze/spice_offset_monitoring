@@ -15,6 +15,7 @@ import yaml
 
 from eui.euiprep import euiprep
 from papy.sol.data.solo_eui import EUISelektorClient
+import align_images
 import spice_stew
 
 
@@ -505,7 +506,7 @@ def plot_images(spice_img, fsi_img, wcs, filename):
     plt.savefig(filename)
 
 
-def coalign_spice_fsi_images(spice_file, fsi_file, output_dir):
+def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
     ''' Coalign SPICE and FSI images
 
     Parameters
@@ -516,8 +517,41 @@ def coalign_spice_fsi_images(spice_file, fsi_file, output_dir):
     output_dir : str
         Output directory
     '''
-    pass  # TODO
 
+    basename = spice_img.rstrip('_coalign_spice_img.fits')
+    plot_filename = f'{basename}_coaligned.pdf'
+    yml_filename = f'{basename}_coaligned.yml'
+    if os.path.isfile(yml_filename):
+        return
+
+    spice_hdu = fits.open(spice_img)[0]
+    fsi_hdu = fits.open(fsi_img)[0]
+    w = wcs.WCS(spice_hdu.header)
+
+    cube = np.stack([spice_hdu.data, fsi_hdu.data])
+    shifts, max_cc = align_images.align.track(
+        fsi_hdu.data,
+        spice_hdu.data,
+        missing=np.nan,
+        # cc_function='explicit',
+        # cc_boundary='fill',
+        # simax=int(50/4),
+        # sjmax=int(50/4),
+        )
+    shifts = shifts[::-1]  # y, x to x, y
+    aligned_cube = np.squeeze(align_images.align.align_cube(
+        cube,
+        np.stack([shifts, [0, 0]]),
+        ))
+    plot_images(aligned_cube[0], aligned_cube[1], w, plot_filename)
+
+    res = dict(
+        dx=float(shifts[0]),
+        dy=float(shifts[1]),
+        max_cc=float(max_cc),
+        )
+    with open(yml_filename, 'w') as f:
+        yaml.safe_dump(res, f, sort_keys=False)
 
 
 
