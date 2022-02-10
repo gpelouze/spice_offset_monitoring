@@ -551,6 +551,7 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
     plot_filename = f'{basename}_coaligned.pdf'
     yml_filename = f'{basename}_coaligned.yml'
     if os.path.isfile(yml_filename):
+        print(f'Coalign results exist for: {basename}, skipping')
         return
 
     spice_hdu = fits.open(spice_img)[0]
@@ -574,6 +575,7 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
         dx=float(shifts[0]),
         dy=float(shifts[1]),
         max_cc=float(max_cc),
+        wcs=dict(w.to_header())
         )
     with open(yml_filename, 'w') as f:
         yaml.safe_dump(res, f, sort_keys=False)
