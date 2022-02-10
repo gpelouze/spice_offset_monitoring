@@ -17,6 +17,7 @@ from eui.euiprep import euiprep
 from papy.sol.data.solo_eui import EUISelektorClient
 from papy.sol.coord import diff_rot
 import align_images
+import papy.plot
 import spice_stew
 
 
@@ -487,41 +488,57 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     return new_spice_filename, new_fsi_filename
 
 
-def plot_images(spice_img, fsi_img, wcs, filename):
-    import sunpy.map
-
-    spice_map = sunpy.map.Map(spice_img, wcs)
-    fsi_map = sunpy.map.Map(fsi_img, wcs)
-    spice_fov_map = sunpy.map.Map(np.isnan(spice_img).astype(float), wcs)
-    fsi_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(fsi_map.data, 1)]),
-            vmax=np.max([10, np.nanpercentile(fsi_map.data, 99.9)]),
-            )
-    spice_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(spice_map.data, 0)]),
-            vmax=np.max([10, np.nanpercentile(spice_map.data, 99)]),
-            )
+def plot_images(spice_img, fsi_img, wcs_common, filename):
+    assert spice_img.shape == fsi_img.shape
+    # assumes CROTA = 0
+    ny, nx = spice_img.shape
+    Tx, _ = wcs_common.pixel_to_world(np.arange(nx), [0])
+    _, Ty = wcs_common.pixel_to_world([0], np.arange(ny))
+    pi = u.Quantity(np.pi, 'rad')
+    Tx = (Tx + pi) % (2*pi) - pi
+    Ty = (Ty + pi) % (2*pi) - pi
+    Tx = Tx.to('arcsec').value
+    Ty = Ty.to('arcsec').value
 
     plt.clf()
-    ax1 = plt.subplot(121, projection=fsi_map)
-    fsi_map.plot(
+    fsi_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(fsi_img, 1)]),
+            vmax=np.max([10, np.nanpercentile(fsi_img, 99.9)]),
+            )
+    spice_norm = plt.matplotlib.colors.LogNorm(
+            vmin=np.max([1, np.nanpercentile(spice_img, 0)]),
+            vmax=np.max([10, np.nanpercentile(spice_img, 99)]),
+            )
+    ax1 = plt.subplot(121)
+    papy.plot.plot_map(
+        plt.gca(),
+        fsi_img,
+        coordinates=[Tx, Ty],
+        regularity_threshold=.2,
         norm=fsi_norm,
-        cmap='viridis',
         )
-    ax2 = plt.subplot(122, projection=spice_map)
-    spice_map.plot(
+    plt.contour(
+        Tx, Ty,
+        spice_img,
+        levels=[spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin))],
+        colors='w',
+        linewidths=.5,
+        )
+    plt.contour(
+        Tx, Ty,
+        np.isnan(spice_img).astype(float),
+        levels=[.5],
+        colors='w',
+        linewidths=.5,
+        )
+    ax2 = plt.subplot(122)
+    papy.plot.plot_map(
+        plt.gca(),
+        spice_img,
+        coordinates=[Tx, Ty],
+        regularity_threshold=.2,
         norm=spice_norm,
-        cmap='viridis',
         )
-    contours = spice_map.contour(
-        spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin)),
-        )
-    contours_fov = spice_fov_map.contour(.5)
-    for ax in [ax1, ax2]:
-        for c in contours:
-            ax.plot_coord(c, color='w', linewidth=.5)
-    if contours_fov:
-        ax1.plot_coord(contours_fov[0], color='w', linewidth=.5)
     ax1.set_xlabel('$\\theta_x$')
     ax1.set_ylabel('$\\theta_y$')
     ax2.set_xlabel('$\\theta_x$')
