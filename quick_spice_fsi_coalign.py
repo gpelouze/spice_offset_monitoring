@@ -15,6 +15,7 @@ import yaml
 
 from eui.euiprep import euiprep
 from papy.sol.data.solo_eui import EUISelektorClient
+from papy.sol.coord import diff_rot
 import align_images
 import spice_stew
 
@@ -361,6 +362,28 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     iymin = 130
     iymax = 670
     spice_img = spice_img[iymin:iymax]
+
+    # Correct solar rotation in SPICE header
+    # rotation rate (on solar sphere)
+    B0 = np.deg2rad(spice_header['SOLAR_B0'])
+    band = fsi_header['WAVELNTH']
+    omega_car = np.deg2rad(360 / 25.38 / 86400)  # rad s-1
+    omega = omega_car + diff_rot(B0, f'EIT {band}')  # rad s-1
+    # helioprojective rotation rate for s/c
+    Rsun = spice_header['RSUN_REF']  # m
+    Dsun = spice_header['DSUN_OBS']  # m
+    phi = omega * Rsun / (Dsun - Rsun)  # rad s-1
+    phi = np.rad2deg(phi) * 3600  # arcsec s-1
+    # time between slit positions
+    t = fits.open(spice_file)[-1].data['TIMAQUTC']
+    t = np.array([parse_date(t) for t in np.squeeze(t)])
+    dt = [dt.total_seconds() for dt in t[1:] - t[:-1]]  # s
+    dt = - np.mean(dt)
+    # CDELT correction
+    DTx_old = spice_header['CDELT1']
+    DTx_new = DTx_old + dt * phi
+    spice_header['CDELT1'] = DTx_new
+    print(f'changed SPICE CDELT1 from {DTx_old} to {DTx_new}')
 
     # SPICE WCS
     wcs_spice = wcs.WCS(spice_header)
