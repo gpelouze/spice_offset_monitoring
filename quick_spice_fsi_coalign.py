@@ -59,7 +59,7 @@ class SpiceUtils:
         columns = list(pd.read_csv(cat_file, nrows=0).keys())
         date_columns = ['DATE-BEG','DATE', 'TIMAQUTC']
         df = pd.read_table(cat_file, skiprows=1, names=columns, na_values="MISSING",
-                        parse_dates=date_columns, warn_bad_lines=True)
+                        parse_dates=date_columns, low_memory=False)
         df.LEVEL = df.LEVEL.apply(lambda string: string.strip())
         df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
         return df
@@ -230,6 +230,7 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
     filename : str or None
         Closest FSI FITS, if there is one.
     '''
+    os.makedirs(output_dir, exist_ok=True)
 
     spice_file_base = os.path.splitext(os.path.basename(spice_file))[0]
     cache_file = f'{output_dir}/{spice_file_base}_fsi_info.yml'
@@ -335,12 +336,14 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     fsi_img : str
         Path to FITS images to coalign
     '''
+    os.makedirs(output_dir, exist_ok=True)
+
     basename = os.path.basename(spice_file_aligned).rstrip('_remapped_img.fits')
-    new_spice_filename = f'{basename}_coalign_spice_img.fits'
+    new_spice_filename = f'{basename}_spice_img.fits'
     new_spice_filename = os.path.join(output_dir, new_spice_filename)
-    new_fsi_filename = f'{basename}_coalign_fsi_img.fits'
+    new_fsi_filename = f'{basename}_fsi_img.fits'
     new_fsi_filename = os.path.join(output_dir, new_fsi_filename)
-    plot_filename = f'{basename}_coalign.pdf'
+    plot_filename = f'{basename}.pdf'
     plot_filename = os.path.join(output_dir, plot_filename)
 
     if os.path.isfile(new_fsi_filename) and os.path.isfile(new_spice_filename):
@@ -517,8 +520,11 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
     output_dir : str
         Output directory
     '''
+    os.makedirs(output_dir, exist_ok=True)
 
-    basename = spice_img.rstrip('_coalign_spice_img.fits')
+    basename = os.path.basename(spice_img)
+    basename = basename.rstrip('_coalign_spice_img.fits')
+    basename = os.path.join(output_dir, basename)
     plot_filename = f'{basename}_coaligned.pdf'
     yml_filename = f'{basename}_coaligned.yml'
     if os.path.isfile(yml_filename):
@@ -533,10 +539,6 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
         fsi_hdu.data,
         spice_hdu.data,
         missing=np.nan,
-        # cc_function='explicit',
-        # cc_boundary='fill',
-        # simax=int(50/4),
-        # sjmax=int(50/4),
         )
     shifts = shifts[::-1]  # y, x to x, y
     aligned_cube = np.squeeze(align_images.align.align_cube(
@@ -568,7 +570,7 @@ if __name__ == '__main__':
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # List SPICE files to process
+    print('Listing SPICE files')
     spice_filenames = list_spice_files(
         args.start_date,
         args.end_date,
@@ -577,40 +579,46 @@ if __name__ == '__main__':
 
     ssp = spice_stew.SpiceSpicePointing()
     for spice_file in spice_filenames:
+        spice_file = SpiceUtils.ias_fullpath(spice_file)
         print('\nProcessing', spice_file)
 
-        spice_file = SpiceUtils.ias_fullpath(spice_file)
-        # Correct pointing with SPICE kernels
+        print('Correcting pointing with SPICE kernels')
         spice_file_aligned = spice_stew.correct_spice_pointing(
             ssp,
             spice_file,
-            args.output_dir,
+            f'{args.output_dir}/spice_stew',
             overwrite=False,
             plot_results=True,
             sum_wvl=True,
             )
 
-        # Get closest FSI image
+        print('Getting closest FSI image')
         fsi_file_L1 = get_fsi_L1(
             spice_file,
             '304',
-            args.output_dir,
+            f'{args.output_dir}/fsi_data',
             max_t_dist=3,
             )
         if fsi_file_L1 is None:
             print('No FSI image found for {spice_file}, skipping')
             continue
         fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
+        print(fsi_file_L1)
 
-        # Convert FSI image to L2
-        fsi_file_L2 = gen_fsi_L2(fsi_file_L1, args.output_dir)
+        print('Generating L2 FSI image')
+        fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
 
-        # Generate images to coalign
+        print('Generating images to coalign')
         spice_img, fsi_img = gen_images_to_coalign(
             spice_file_aligned,
             'Ly-gamma-CIII group bin (1/4)',
             fsi_file_L2,
-            args.output_dir,
+            f'{args.output_dir}/coalign_input',
             )
 
-        coalign_spice_fsi_images(spice_img, fsi_img, args.output_dir)
+        print('Coaligning images')
+        coalign_spice_fsi_images(
+            spice_img,
+            fsi_img,
+            f'{args.output_dir}/coalign_output',
+            )
