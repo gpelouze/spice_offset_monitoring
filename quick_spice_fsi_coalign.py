@@ -620,9 +620,23 @@ if __name__ == '__main__':
         )
 
     ssp = spice_stew.SpiceSpicePointing()
-    for spice_file in spice_filenames:
+    n_tot = len(spice_filenames)
+    for i, spice_file in enumerate(spice_filenames):
         spice_file = SpiceUtils.ias_fullpath(spice_file)
-        print('\nProcessing', spice_file)
+        print('\nProcessing', spice_file, f'{i}/{n_tot}')
+
+        print('Getting closest FSI image')
+        fsi_file_L1 = get_fsi_L1(
+            spice_file,
+            '304',
+            f'{args.output_dir}/fsi_data',
+            max_t_dist=3,
+            )
+        if fsi_file_L1 is None:
+            print(f'No FSI image found for {spice_file}, skipping')
+            continue
+        fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
+        print(fsi_file_L1)
 
         print('Correcting pointing with SPICE kernels')
         spice_file_aligned = spice_stew.correct_spice_pointing(
@@ -633,19 +647,6 @@ if __name__ == '__main__':
             plot_results=True,
             sum_wvl=True,
             )
-
-        print('Getting closest FSI image')
-        fsi_file_L1 = get_fsi_L1(
-            spice_file,
-            '304',
-            f'{args.output_dir}/fsi_data',
-            max_t_dist=3,
-            )
-        if fsi_file_L1 is None:
-            print('No FSI image found for {spice_file}, skipping')
-            continue
-        fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
-        print(fsi_file_L1)
 
         print('Generating L2 FSI image')
         fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
