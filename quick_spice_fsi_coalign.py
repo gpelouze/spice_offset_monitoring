@@ -289,7 +289,10 @@ def get_spice_image_data(filename, window):
         FITS header
     '''
     hdulist = fits.open(filename)
-    hdu = hdulist[window]
+    try:
+        hdu = hdulist[window]
+    except KeyError:
+        return None
 
     img = np.squeeze(hdu.data)  # remove 1-length dimensions, ie t and wvl
     if img.ndim != 2:
@@ -352,10 +355,13 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
         print(f'Coalign images exist for: {basename}, skipping')
         return new_spice_filename, new_fsi_filename
 
-    spice_img, spice_header = get_spice_image_data(
+    spice_img_data = get_spice_image_data(
         spice_file,
         spice_window,
         )
+    if spice_img_data is None:
+        return None
+    spice_img, spice_header = spice_img_data
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
     # Cut spice image
@@ -652,12 +658,16 @@ if __name__ == '__main__':
         fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
 
         print('Generating images to coalign')
-        spice_img, fsi_img = gen_images_to_coalign(
+        img_to_coalign = gen_images_to_coalign(
             spice_file_aligned,
             'Ly-gamma-CIII group bin (1/4)',
             fsi_file_L2,
             f'{args.output_dir}/coalign_input',
             )
+        if img_to_coalign is None:
+            print('Could not get images to coalign')
+            continue
+        spice_img, fsi_img = img_to_coalign
 
         print('Coaligning images')
         coalign_spice_fsi_images(
