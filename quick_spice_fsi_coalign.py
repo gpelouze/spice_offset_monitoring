@@ -557,7 +557,7 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
     plt.savefig(filename)
 
 
-def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
+def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
     ''' Coalign SPICE and FSI images
 
     Parameters
@@ -567,6 +567,8 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
         Path to FITS images to coalign, written by `gen_images_to_coalign()`
     output_dir : str
         Output directory
+    roll : float or None (default: None)
+        roll in degrees, to save with yml file
     '''
     os.makedirs(output_dir, exist_ok=True)
 
@@ -600,6 +602,7 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir):
         dx=float(shifts[0]),
         dy=float(shifts[1]),
         max_cc=float(max_cc),
+        roll=roll,
         wcs=dict(w.to_header())
         )
     with open(yml_filename, 'w') as f:
@@ -655,6 +658,8 @@ if __name__ == '__main__':
             plot_results=True,
             sum_wvl=True,
             )
+        with fits.open(spice_file) as hdul:
+            roll = hdul[0].header['CROTA']
 
         print('Generating L2 FSI image')
         fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
@@ -676,4 +681,5 @@ if __name__ == '__main__':
             spice_img,
             fsi_img,
             f'{args.output_dir}/coalign_output',
+            roll=roll,
             )
