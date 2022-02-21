@@ -91,6 +91,24 @@ class SpiceUtils:
 
         return fullpath
 
+    def slit_px(header):
+        ''' Compute the first and last pixel of the slit from a FITS header '''
+        h_detector = 1024
+        if header['DETECTOR'] == 'SW':
+            h_slit = 600
+        elif header['DETECTOR'] == 'LW':
+            h_slit = 626
+        else:
+            raise ValueError(f"unknown detector: {h['DETECTOR']}")
+        slit_beg = (h_detector - h_slit) / 2
+        slit_end = h_detector - slit_beg
+        print(header['DETECTOR'], slit_beg, slit_end, header['PXBEG2'])
+        slit_beg = slit_beg - header['PXBEG2'] + 1
+        slit_end = slit_end - header['PXBEG2'] + 1
+        print(header['DETECTOR'], slit_beg, slit_end)
+        return slit_beg, slit_end
+
+
 
 class EuiUtils:
     def ias_fullpath(rob_fullpath):
@@ -368,8 +386,10 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
 
     # Cut spice image
     # cut-off sides  FIXME: correct values?
-    iymin = 130
-    iymax = 670
+    iymin, iymax = SpiceSpicePointing.slit_px(spice_header)
+    iymin += 20
+    iymax -= 20
+    iymax += 1
     spice_img = spice_img[iymin:iymax]
 
     # Correct solar rotation in SPICE header
