@@ -63,6 +63,9 @@ if __name__ == '__main__':
 
     # add columns
     dat['dr'] = np.sqrt(np.array(dat['dx'])**2 + np.array(dat['dy'])**2)
+    r = np.deg2rad(dat['roll'])
+    dat['dx_sc'] = dat['dx'] * np.cos(r) - dat['dy'] * np.sin(r)
+    dat['dy_sc'] = dat['dx'] * np.sin(r) + dat['dy'] * np.cos(r)
 
     # filter
     m = (dat['max_cc'] > 0.2)
@@ -82,10 +85,18 @@ if __name__ == '__main__':
     plt.plot(dat['date'], dat['dx'], 'ko', ms=3, label='$\\theta_x$')
     plt.plot(dat['date'], dat['dy'], 'rs', ms=3, label='$\\theta_y$')
     plt.xlabel('Date')
-    plt.ylabel('SPICE-FSI offset [arcsec]')
+    plt.ylabel('SPICE-FSI WCS offset [arcsec]')
     plt.legend()
     plt.gcf().autofmt_xdate()
-    # formatter = plt.matplotlib.dates.DateFormatter("%Y-%m")
-    # plt.gca().xaxis.set_major_formatter(formatter)
-    plt.savefig('./output/coalign.pdf')
+    plt.savefig('./output/coalign_TxTy_hproj.pdf')
+    plt.xlim(parse_date('2021-12-02').toordinal(), None)
+
+    plt.clf()
+    plt.plot(dat['date'], dat['dx_sc'], 'ko', ms=3, label='$\\theta_x$ s/c')
+    plt.plot(dat['date'], dat['dy_sc'], 'rs', ms=3, label='$\\theta_y$ s/c')
+    plt.xlabel('Date')
+    plt.ylabel('SPICE-FSI WCS offset [arcsec]')
+    plt.legend()
+    plt.gcf().autofmt_xdate()
+    plt.savefig('./output/coalign_TxTy_sc.pdf')
     plt.xlim(parse_date('2021-12-02').toordinal(), None)
