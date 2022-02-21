@@ -439,7 +439,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     Tx_spice = Tx_spice.to('arcsec').value
     Ty_spice = Ty_spice.to('arcsec').value
 
-    # SPICE WCS
+    # FSI WCS
     wcs_fsi = wcs.WCS(fsi_header)
     # px coordinates of SPICE cut zone
     ny_fsi, nx_fsi = fsi_img.shape
