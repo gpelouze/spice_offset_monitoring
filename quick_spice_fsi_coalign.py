@@ -682,7 +682,11 @@ if __name__ == '__main__':
             roll = hdul[0].header['CROTA']
 
         print('Generating L2 FSI image')
-        fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
+        try:
+            fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
+        except FileNotFoundError:
+            print(f'Could not open {fsi_file_L1}, skipping')
+            continue
 
         print('Generating images to coalign')
         img_to_coalign = gen_images_to_coalign(
