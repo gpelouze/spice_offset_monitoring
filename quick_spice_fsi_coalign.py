@@ -120,7 +120,7 @@ class EuiUtils:
         return os.path.join(output_dir, base)
 
 
-def list_spice_files(start_date, end_date, study_name=None):
+def list_spice_files(start_date, end_date, study_name=None, study_id=None):
     ''' Get list of SPICE files
 
     Parameters
@@ -130,7 +130,9 @@ def list_spice_files(start_date, end_date, study_name=None):
     end_date : str (YYYY-MM-DD)
         Query end date
     study_name : str or None (default: None)
-        Study name. If None, return all studies.
+        Study name.
+    study_id: str or None (default: None)
+        Study id in Miso.
 
     Returns
     =======
@@ -146,6 +148,8 @@ def list_spice_files(start_date, end_date, study_name=None):
         )
     if study_name is not None:
         filters &= (cat['STUDY'] == study_name)
+    if study_id is not None:
+        filters &= (cat['MISOSTUD'] == study_id)
     results = cat[filters]
     return list(results['FILENAME'])
 
@@ -630,13 +634,22 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
 if __name__ == '__main__':
 
     p = argparse.ArgumentParser()
-    p.add_argument('--start-date',
+    p.add_argument('--start-date', required=True,
                    help='processing start date (YYYY-MM-DD)')
-    p.add_argument('--end-date',
+    p.add_argument('--end-date', required=True,
                    help='processing end date (YYYY-MM-DD)')
+    p.add_argument('--study-name',
+                   help='study name')
+    p.add_argument('--study-id',
+                   help='study ID in MISO')
+    p.add_argument('--spec-win', required=True,
+                   help='spectral window')
     p.add_argument('--output-dir', default='./output',
                    help='output directory')
     args = p.parse_args()
+
+    if (args.study_name is None) and (args.study_id) is None:
+        raise ValueError('must specify --study-name or --study')
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -644,7 +657,8 @@ if __name__ == '__main__':
     spice_filenames = list_spice_files(
         args.start_date,
         args.end_date,
-        study_name='SCI_SYNOPTIC_SC_SL04_60.0S_FF',
+        study_name=args.study_name,
+        study_id=args.study_id,
         )
 
     ssp = spice_stew.SpiceSpicePointing()
@@ -688,7 +702,7 @@ if __name__ == '__main__':
         print('Generating images to coalign')
         img_to_coalign = gen_images_to_coalign(
             spice_file_aligned,
-            'Ly-gamma-CIII group bin (1/4)',
+            args.spec_win,
             fsi_file_L2,
             f'{args.output_dir}/coalign_input',
             )
