@@ -100,12 +100,10 @@ class SpiceUtils:
             h_slit = 626
         else:
             raise ValueError(f"unknown detector: {h['DETECTOR']}")
-        slit_beg = (h_detector - h_slit) / 2
+        slit_beg = (h_detector - h_slit) // 2
         slit_end = h_detector - slit_beg
-        print(header['DETECTOR'], slit_beg, slit_end, header['PXBEG2'])
         slit_beg = slit_beg - header['PXBEG2'] + 1
         slit_end = slit_end - header['PXBEG2'] + 1
-        print(header['DETECTOR'], slit_beg, slit_end)
         return slit_beg, slit_end
 
 
@@ -385,8 +383,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
     # Cut spice image
-    # cut-off sides  FIXME: correct values?
-    iymin, iymax = SpiceSpicePointing.slit_px(spice_header)
+    iymin, iymax = SpiceUtils.slit_px(spice_header)
     iymin += 20
     iymax -= 20
     iymax += 1
