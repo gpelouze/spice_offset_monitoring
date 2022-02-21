@@ -9,6 +9,8 @@ from astropy import units as u
 from astropy import wcs
 from astropy.io import fits
 from dateutil.parser import parse as parse_date
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import scipy.interpolate as si
 import yaml
