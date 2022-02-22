@@ -91,8 +91,9 @@ if __name__ == '__main__':
 
     bk.plotting.output_file(f'{args.output_dir}/view.html')
     p = bk.plotting.figure(
-        x_axis_label='',
-        y_axis_label='',
+        x_axis_type="datetime",
+        x_axis_label='Date',
+        y_axis_label='SPICE-FSI WCS offset [arcsec]',
         tools='pan,box_zoom,wheel_zoom,save,reset',
         plot_height=800,
         plot_width=1000,
@@ -100,6 +101,6 @@ if __name__ == '__main__':
     p.add_tools(hover_tool)
     p.add_tools(tap_tool)
 
-    p.dot('date', 'dx', size=20, color='#000000', source=source)
-    p.dot('date', 'dy', size=20, color='#ff0000', source=source)
+    p.dot('date', 'dx', size=20, color='#000000', source=source, legend_label='X')
+    p.dot('date', 'dy', size=20, color='#ff0000', source=source, legend_label='Y')
     bk.plotting.save(p)
