@@ -3,6 +3,7 @@
 import datetime
 
 import argparse
+import glob
 import os
 
 from astropy.io import fits
@@ -43,40 +44,30 @@ TOOLTIPS_HTML = """
 if __name__ == '__main__':
 
     p = argparse.ArgumentParser()
-    p.add_argument('--start-date',
-                   help='processing start date (YYYY-MM-DD)')
-    p.add_argument('--end-date',
-                   help='processing end date (YYYY-MM-DD)')
-    p.add_argument('--output-dir', default='./output/coalign_output',
-                   help='output directory')
+    p.add_argument('--output-dir', default='./output',
+                   help='data directory')
     args = p.parse_args()
 
-    print('Listing SPICE files')
-    spice_fnames = list_spice_files(
-        args.start_date,
-        args.end_date,
-        study_name='SCI_SYNOPTIC_SC_SL04_60.0S_FF',
-        )
+    print('Listing files')
+    yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
+    yml_fnames = list(sorted(yml_fnames))
 
     dat = []
-    for spice_fname in spice_fnames:
-        base, _ = os.path.splitext(spice_fname)
-        yml_fname = f'{args.output_dir}/{base}_coaligned.yml'
-        url = 'coalign_output'
-        pdf_fname = f'{url}/{base}_coaligned.pdf'
-        img_fname = f'{url}/{base}_coaligned.jpg'
+    for yml_fname in yml_fnames:
         if os.path.isfile(yml_fname):
+            spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
             print('opening', spice_fname)
             with open(yml_fname, 'r') as f:
                 res = yaml.safe_load(f)
-            res['date'] = SpiceUtils.filename_to_date(spice_fname)
-            res['plot_pdf'] = pdf_fname
-            res['plot'] = img_fname
+            res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
+            res['plot_pdf'] = f'coalign_output/{spice_fname}_coaligned.pdf'
+            res['plot'] = f'coalign_output/{spice_fname}_coaligned.jpg'
             wcs = res.pop('wcs')
             res.update(wcs)
             dat.append(res)
         else:
             print('skipping', spice_fname)
+
     dat = pd.DataFrame(dat)
 
     # add columns
@@ -98,7 +89,7 @@ if __name__ == '__main__':
         callback=bk.models.OpenURL(url='@plot'),
         )
 
-    bk.plotting.output_file('output/view.html')
+    bk.plotting.output_file(f'{args.output_dir}/view.html')
     p = bk.plotting.figure(
         x_axis_label='',
         y_axis_label='',

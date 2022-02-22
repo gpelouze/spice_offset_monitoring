@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import glob
 import os
 
 from astropy.io import fits
@@ -27,32 +28,22 @@ def list_of_dict_to_dict_of_arr(l):
 if __name__ == '__main__':
 
     p = argparse.ArgumentParser()
-    p.add_argument('--start-date',
-                   help='processing start date (YYYY-MM-DD)')
-    p.add_argument('--end-date',
-                   help='processing end date (YYYY-MM-DD)')
-    p.add_argument('--output-dir', default='./output/coalign_output',
-                   help='output directory')
+    p.add_argument('--output-dir', default='./output',
+                   help='data directory')
     args = p.parse_args()
 
-    print('Listing SPICE files')
-    spice_fnames = list_spice_files(
-        args.start_date,
-        args.end_date,
-        study_name='SCI_SYNOPTIC_SC_SL04_60.0S_FF',
-        )
+    print('Listing files')
+    yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
 
     dat = []
-    for spice_fname in spice_fnames:
-        base, _ = os.path.splitext(spice_fname)
-        yml_fname = f'{args.output_dir}/{base}_coaligned.yml'
-        pdf_fname = f'./coalign_output/{base}_coaligned.pdf'
+    for yml_fname in yml_fnames:
         if os.path.isfile(yml_fname):
+            spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
             print('opening', spice_fname)
             with open(yml_fname, 'r') as f:
                 res = yaml.safe_load(f)
-            res['date'] = SpiceUtils.filename_to_date(spice_fname)
-            res['plot'] = pdf_fname
+            res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
+            res['plot'] = f'coalign_output/{spice_fname}_coaligned.pdf'
             wcs = res.pop('wcs')
             res.update(wcs)
             dat.append(res)
@@ -79,7 +70,7 @@ if __name__ == '__main__':
     plt.plot(dat_discard['dr'], dat_discard['max_cc'], 'o', color='gray', ms=3)
     plt.xlabel('SPICE-FSI centers distance [arcsec]')
     plt.ylabel('max(CC)')
-    plt.savefig('output/coalign_cc_dr.pdf')
+    plt.savefig(f'{args.output_dir}/coalign_cc_dr.pdf')
 
     plt.clf()
     plt.plot(dat['date'], dat['dx'], 'ko', ms=3, label='$\\theta_x$')
@@ -88,7 +79,7 @@ if __name__ == '__main__':
     plt.ylabel('SPICE-FSI WCS offset [arcsec]')
     plt.legend()
     plt.gcf().autofmt_xdate()
-    plt.savefig('./output/coalign_TxTy_hproj.pdf')
+    plt.savefig(f'{args.output_dir}/coalign_TxTy_hproj.pdf')
     plt.xlim(parse_date('2021-12-02').toordinal(), None)
 
     plt.clf()
@@ -98,5 +89,5 @@ if __name__ == '__main__':
     plt.ylabel('SPICE-FSI WCS offset [arcsec]')
     plt.legend()
     plt.gcf().autofmt_xdate()
-    plt.savefig('./output/coalign_TxTy_sc.pdf')
+    plt.savefig(f'{args.output_dir}/coalign_TxTy_sc.pdf')
     plt.xlim(parse_date('2021-12-02').toordinal(), None)
