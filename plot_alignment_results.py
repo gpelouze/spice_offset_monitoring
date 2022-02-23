@@ -34,23 +34,18 @@ if __name__ == '__main__':
                    help='data directory')
     args = p.parse_args()
 
-    print('Listing files')
     yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
 
     dat = []
     for yml_fname in yml_fnames:
-        if os.path.isfile(yml_fname):
-            spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
-            print('opening', spice_fname)
-            with open(yml_fname, 'r') as f:
-                res = yaml.safe_load(f)
-            res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
-            res['plot'] = f'coalign_output/{spice_fname}_coaligned.pdf'
-            wcs = res.pop('wcs')
-            res.update(wcs)
-            dat.append(res)
-        else:
-            print('skipping', spice_fname)
+        spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
+        with open(yml_fname, 'r') as f:
+            res = yaml.safe_load(f)
+        res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
+        res['plot'] = f'coalign_output/{spice_fname}_coaligned.pdf'
+        wcs = res.pop('wcs')
+        res.update(wcs)
+        dat.append(res)
 
     dat = list_of_dict_to_dict_of_arr(dat)
 
@@ -91,10 +86,16 @@ if __name__ == '__main__':
         thdat = ThompsonData()
         plt.plot(thdat.date, thdat.dx, 'k+', label='$\\theta_x$ (W. Thompson)')
         plt.plot(thdat.date, thdat.dy, 'r+', label='$\\theta_y$ (W. Thompson)')
-        # plt.xlim(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9))
+        plt.xlim(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9))
     plt.xlabel('Date')
     plt.ylabel('SPICE-FSI WCS offset [arcsec]')
     plt.legend()
     plt.gcf().autofmt_xdate()
     plt.savefig(f'{args.output_dir}/coalign_TxTy_sc.pdf')
     plt.xlim(parse_date('2021-12-02').toordinal(), None)
+
+    print('dx:', np.mean(dat['dx']), np.std(dat['dx']))
+    print('dy:', np.mean(dat['dy']), np.std(dat['dy']))
+    print('dr:', np.mean(dat['dr']), np.std(dat['dr']))
+    print('dx s/c:', np.mean(dat['dx_sc']), np.std(dat['dx_sc']))
+    print('dy s/c:', np.mean(dat['dy_sc']), np.std(dat['dy_sc']))

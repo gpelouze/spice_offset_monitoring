@@ -82,25 +82,20 @@ if __name__ == '__main__':
                    help='data directory')
     args = p.parse_args()
 
-    print('Listing files')
     yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
     yml_fnames = list(sorted(yml_fnames))
 
     dat = []
     for yml_fname in yml_fnames:
-        if os.path.isfile(yml_fname):
-            spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
-            print('opening', spice_fname)
-            with open(yml_fname, 'r') as f:
-                res = yaml.safe_load(f)
-            res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
-            res['plot_pdf'] = f'coalign_output/{spice_fname}_coaligned.pdf'
-            res['plot'] = f'coalign_output/{spice_fname}_coaligned.jpg'
-            wcs = res.pop('wcs')
-            res.update(wcs)
-            dat.append(res)
-        else:
-            print('skipping', spice_fname)
+        spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
+        with open(yml_fname, 'r') as f:
+            res = yaml.safe_load(f)
+        res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
+        res['plot_pdf'] = f'coalign_output/{spice_fname}_coaligned.pdf'
+        res['plot'] = f'coalign_output/{spice_fname}_coaligned.jpg'
+        wcs = res.pop('wcs')
+        res.update(wcs)
+        dat.append(res)
 
     dat = pd.DataFrame(dat)
 
