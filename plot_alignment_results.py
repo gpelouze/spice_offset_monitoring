@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import glob
 import os
 
@@ -11,6 +12,7 @@ import numpy as np
 import yaml
 
 from quick_spice_fsi_coalign import SpiceUtils, list_spice_files
+from view_alignment_results import ThompsonData
 
 
 def list_of_dict_to_dict_of_arr(l):
@@ -85,6 +87,11 @@ if __name__ == '__main__':
     plt.clf()
     plt.plot(dat['date'], dat['dx_sc'], 'ko', ms=3, label='$\\theta_x$ s/c')
     plt.plot(dat['date'], dat['dy_sc'], 'rs', ms=3, label='$\\theta_y$ s/c')
+    if dat['date'].min() <= datetime.datetime(2020, 6, 21):
+        thdat = ThompsonData()
+        plt.plot(thdat.date, thdat.dx, 'k+', label='$\\theta_x$ (W. Thompson)')
+        plt.plot(thdat.date, thdat.dy, 'r+', label='$\\theta_y$ (W. Thompson)')
+        # plt.xlim(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9))
     plt.xlabel('Date')
     plt.ylabel('SPICE-FSI WCS offset [arcsec]')
     plt.legend()
