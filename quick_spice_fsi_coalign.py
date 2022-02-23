@@ -657,6 +657,7 @@ if __name__ == '__main__':
 
     os.makedirs(args.output_dir, exist_ok=True)
 
+    print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
     print('Listing SPICE files')
     spice_filenames = list_spice_files(
         args.start_date,
@@ -664,6 +665,10 @@ if __name__ == '__main__':
         study_name=args.study_name,
         study_id=args.study_id,
         )
+    print(args.study_name, args.study_id, len(spice_filenames))
+    print(args.spec_win)
+    for fn in spice_filenames:
+        print(fn)
 
     ssp = spice_stew.SpiceSpicePointing()
     n_tot = len(spice_filenames)
