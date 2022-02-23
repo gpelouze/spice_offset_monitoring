@@ -530,13 +530,17 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
     Ty = Ty.to('arcsec').value
 
     plt.clf()
+    def nanptp(a):
+        return np.nanmax(a) - np.nanmin(a)
+    fsi_img = fsi_img - np.nanmin(fsi_img) + 0.01*nanptp(fsi_img)
+    spice_img = spice_img - np.nanmin(spice_img) + 0.01*nanptp(spice_img)
     fsi_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(fsi_img, 1)]),
-            vmax=np.max([10, np.nanpercentile(fsi_img, 99.9)]),
+            vmin=np.nanpercentile(fsi_img, 0),
+            vmax=np.nanpercentile(fsi_img, 99.9),
             )
     spice_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.max([1, np.nanpercentile(spice_img, 0)]),
-            vmax=np.max([10, np.nanpercentile(spice_img, 99)]),
+            vmin=np.nanpercentile(spice_img, 0),
+            vmax=np.nanpercentile(spice_img, 99.9),
             )
     ax1 = plt.subplot(121)
     papy.plot.plot_map(
@@ -549,7 +553,7 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
     plt.contour(
         Tx, Ty,
         spice_img,
-        levels=[spice_norm.vmax - (.1*(spice_norm.vmax - spice_norm.vmin))],
+        levels=np.nanpercentile(spice_img, [95, 99]),
         colors='w',
         linewidths=.5,
         )
