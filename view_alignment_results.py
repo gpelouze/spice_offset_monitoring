@@ -106,6 +106,9 @@ if __name__ == '__main__':
 
     # add columns
     dat['dr'] = np.sqrt(np.array(dat['dx'])**2 + np.array(dat['dy'])**2)
+    r = np.deg2rad(dat['roll'])
+    dat['dx_sc'] = dat['dx'] * np.cos(r) - dat['dy'] * np.sin(r)
+    dat['dy_sc'] = dat['dx'] * np.sin(r) + dat['dy'] * np.cos(r)
 
     # filter data
     m = (dat['max_cc'] > 0.2)
@@ -131,12 +134,13 @@ if __name__ == '__main__':
         tools='pan,box_zoom,wheel_zoom,save,reset',
         plot_height=800,
         plot_width=1000,
+        x_range=(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9)),
         )
     p.add_tools(hover_tool)
     p.add_tools(tap_tool)
 
-    p.dot('date', 'dx', size=20, color='#000000', source=source, legend_label='X')
-    p.dot('date', 'dy', size=20, color='#ff0000', source=source, legend_label='Y')
+    p.dot('date', 'dx_sc', size=20, color='#000000', source=source, legend_label='X')
+    p.dot('date', 'dy_sc', size=20, color='#ff0000', source=source, legend_label='Y')
     if dat['date'].min() <= datetime.datetime(2020, 6, 21):
         source_th = bk.models.ColumnDataSource(data=ThompsonData().to_df())
         p.cross('date', 'dx', size=20, color='#000000', source=source_th, legend_label='X (W. Thompson)')
