@@ -291,6 +291,37 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
     return fsi_file_L2
 
 
+def dummy_stew(filename, output_dir, sum_wvl=False):
+    os.makedirs(output_dir, exist_ok=True)
+    # filename operations
+    basename = os.path.splitext(os.path.basename(filename))[0]
+    if sum_wvl:
+        output_fits = f'{output_dir}/{basename}_remapped_img.fits'
+    else:
+        output_fits = f'{output_dir}/{basename}_remapped.fits'
+
+    if os.path.isfile(output_fits) and not overwrite:
+        print(f'Aligned file exists: {output_fits}, exiting')
+        return output_fits
+
+    hdulist = fits.open(filename)
+    for hdu in hdulist:
+        if hdu.is_image:
+            if sum_wvl:
+                img = np.nansum(hdu.data, axis=1)  # Sum over wavelengths
+                img = np.squeeze(img)  # Collapse 1-depth axis (t or X)
+                hdu.data = img
+            hdu.update_header()
+            hdu.header.add_history('dummy_stew')
+            hdu.add_datasum()
+            hdu.add_checksum()
+
+    # save data
+    hdulist.writeto(output_fits, overwrite=True)
+
+    return output_fits
+
+
 
 def get_spice_image_data(filename, window):
     ''' Return SPICE image data
@@ -648,6 +679,8 @@ if __name__ == '__main__':
                    help='study ID in MISO')
     p.add_argument('--spec-win', required=True,
                    help='spectral window')
+    p.add_argument('--no-stew', action='store_true',
+                   help='skip jitter correction using spice_stew')
     p.add_argument('--output-dir', default='./output',
                    help='output directory')
     args = p.parse_args()
@@ -670,7 +703,8 @@ if __name__ == '__main__':
     for fn in spice_filenames:
         print(fn)
 
-    ssp = spice_stew.SpiceSpicePointing()
+    if not args.no_stew:
+        ssp = spice_stew.SpiceSpicePointing()
     n_tot = len(spice_filenames)
     for i, spice_file in enumerate(spice_filenames):
         spice_file = SpiceUtils.ias_fullpath(spice_file)
@@ -689,15 +723,23 @@ if __name__ == '__main__':
         fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
         print(fsi_file_L1)
 
-        print('Correcting pointing with SPICE kernels')
-        spice_file_aligned = spice_stew.correct_spice_pointing(
-            ssp,
-            spice_file,
-            f'{args.output_dir}/spice_stew',
-            overwrite=False,
-            plot_results=True,
-            sum_wvl=True,
-            )
+        if not args.no_stew:
+            print('Correcting pointing with SPICE kernels')
+            spice_file_aligned = spice_stew.correct_spice_pointing(
+                ssp,
+                spice_file,
+                f'{args.output_dir}/spice_stew',
+                overwrite=False,
+                plot_results=True,
+                sum_wvl=True,
+                )
+        else:
+            print('Applying dummy SPICE kernel pointing correction')
+            spice_file_aligned = dummy_stew(
+                spice_file,
+                f'{args.output_dir}/spice_stew_dummy',
+                sum_wvl=True,
+                )
         with fits.open(spice_file) as hdul:
             roll = hdul[0].header['CROTA']
 
