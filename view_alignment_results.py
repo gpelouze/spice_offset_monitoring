@@ -134,7 +134,7 @@ if __name__ == '__main__':
         tools='pan,box_zoom,wheel_zoom,save,reset',
         plot_height=800,
         plot_width=1000,
-        x_range=(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9)),
+        # x_range=(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9)),
         )
     p.add_tools(hover_tool)
     p.add_tools(tap_tool)
