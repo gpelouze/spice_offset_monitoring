@@ -93,19 +93,21 @@ class SpiceUtils:
 
     def slit_px(header):
         ''' Compute the first and last pixel of the slit from a FITS header '''
-        h_detector = 1024
+        ybin = header['NBIN2']
+        h_detector = 1024 / ybin
         if header['DETECTOR'] == 'SW':
-            h_slit = 600
+            h_slit = 600 / ybin
         elif header['DETECTOR'] == 'LW':
-            h_slit = 626
+            h_slit = 626 / ybin
         else:
             raise ValueError(f"unknown detector: {h['DETECTOR']}")
-        slit_beg = (h_detector - h_slit) // 2
+        slit_beg = (h_detector - h_slit) / 2
         slit_end = h_detector - slit_beg
-        slit_beg = slit_beg - header['PXBEG2'] + 1
-        slit_end = slit_end - header['PXBEG2'] + 1
+        slit_beg = slit_beg - header['PXBEG2'] / ybin + 1
+        slit_end = slit_end - header['PXBEG2'] / ybin + 1
+        slit_beg = int(np.ceil(slit_beg))
+        slit_end = int(np.floor(slit_end))
         return slit_beg, slit_end
-
 
 
 class EuiUtils:
@@ -419,8 +421,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
 
     # Cut spice image
     iymin, iymax = SpiceUtils.slit_px(spice_header)
-    iymin += 20
-    iymax -= 20
+    iymin += int(20 / spice_header['NBIN2'])
+    iymax -= int(20 / spice_header['NBIN2'])
     iymax += 1
     spice_img = spice_img[iymin:iymax]
 
