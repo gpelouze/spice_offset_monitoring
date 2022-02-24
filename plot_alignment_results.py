@@ -32,6 +32,8 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--output-dir', default='./output',
                    help='data directory')
+    p.add_argument('--thompson', action='store_true',
+                   help='Plot comparison to Thompson data on 2020-06-20')
     args = p.parse_args()
 
     yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
@@ -82,7 +84,7 @@ if __name__ == '__main__':
     plt.clf()
     plt.plot(dat['date'], dat['dx_sc'], 'ko', ms=3, label='$\\theta_x$ s/c')
     plt.plot(dat['date'], dat['dy_sc'], 'rs', ms=3, label='$\\theta_y$ s/c')
-    if dat['date'].min() <= datetime.datetime(2020, 6, 21):
+    if args.thompson:
         thdat = ThompsonData()
         plt.plot(thdat.date, thdat.dx, 'k+', label='$\\theta_x$ (W. Thompson)')
         plt.plot(thdat.date, thdat.dy, 'r+', label='$\\theta_y$ (W. Thompson)')

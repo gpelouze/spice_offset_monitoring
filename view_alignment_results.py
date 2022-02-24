@@ -80,6 +80,8 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--output-dir', default='./output',
                    help='data directory')
+    p.add_argument('--thompson', action='store_true',
+                   help='Plot comparison to Thompson data on 2020-06-20')
     args = p.parse_args()
 
     yml_fnames = glob.glob(f'{args.output_dir}/coalign_output/*_coaligned.yml')
@@ -122,6 +124,10 @@ if __name__ == '__main__':
         )
 
     bk.plotting.output_file(f'{args.output_dir}/view.html')
+    if args.thompson:
+        x_range = (datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9))
+    else:
+        x_range = None
     p = bk.plotting.figure(
         x_axis_type="datetime",
         x_axis_label='Date',
@@ -129,14 +135,14 @@ if __name__ == '__main__':
         tools='pan,box_zoom,wheel_zoom,save,reset',
         plot_height=800,
         plot_width=1000,
-        # x_range=(datetime.datetime(2020, 6, 20, 0), datetime.datetime(2020, 6, 20, 9)),
+        x_range=x_range,
         )
     p.add_tools(hover_tool)
     p.add_tools(tap_tool)
 
     p.dot('date', 'dx_sc', size=20, color='#000000', source=source, legend_label='X')
     p.dot('date', 'dy_sc', size=20, color='#ff0000', source=source, legend_label='Y')
-    if dat['date'].min() <= datetime.datetime(2020, 6, 21):
+    if args.thompson:
         source_th = bk.models.ColumnDataSource(data=ThompsonData().to_df())
         p.cross('date', 'dx', size=20, color='#000000', source=source_th, legend_label='X (W. Thompson)')
         p.cross('date', 'dy', size=20, color='#ff0000', source=source_th, legend_label='Y (W. Thompson)')
