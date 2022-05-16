@@ -16,7 +16,7 @@ import scipy.interpolate as si
 import yaml
 
 from eui.euiprep import euiprep
-from papy.sol.data.solo_eui import EUISelektorClient
+from eui_selektor_client import EUISelektorClient
 from papy.sol.coord import diff_rot
 import align_images
 import papy.plot
