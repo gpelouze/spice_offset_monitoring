@@ -151,6 +151,8 @@ def list_spice_files(start_date, end_date, study_name=None, study_id=None):
     if study_name is not None:
         filters &= (cat['STUDY'] == study_name)
     if study_id is not None:
+        if type(study_id) is not str:
+            raise ValueError(f'study_id must be str (got {type(study_id)})')
         filters &= (cat['MISOSTUD'] == study_id)
     results = cat[filters]
     return list(results['FILENAME'])
