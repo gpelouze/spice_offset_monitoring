@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import svgpath2mpl
 import yaml
+from astropy.io import fits
+import tqdm
 
 from quick_spice_fsi_coalign import SpiceUtils
 from plot_alignment_results import list_of_dict_to_dict_of_arr
@@ -20,11 +22,21 @@ m -49.85316,289.25194 c -2.56128,2.76813 -5.26119,5.3446 -7.66432,8.23714 -2.278
 ''')
 marker.vertices -= marker.vertices.mean(axis=0)
 
+
+def get_header_data(fname):
+    hdul = fits.open(fname)
+    header = hdul[0].header
+    keywords = [
+        'DSUN_AU',
+        ]
+    return {kw: header[kw] for kw in keywords}
+
+
 def get_data(output_dir):
     yml_fnames = glob.glob(f'{output_dir}/coalign_output/*_coaligned.yml')
 
     dat = []
-    for yml_fname in yml_fnames:
+    for yml_fname in tqdm.tqdm(yml_fnames, desc='Loading data'):
         spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
         with open(yml_fname, 'r') as f:
             res = yaml.safe_load(f)
@@ -32,6 +44,9 @@ def get_data(output_dir):
         res['plot'] = f'coalign_output/{spice_fname}_coaligned.pdf'
         wcs = res.pop('wcs')
         res.update(wcs)
+        header_data = get_header_data(os.path.join(
+            output_dir, 'spice_stew', f'{spice_fname}_remapped_img.fits'))
+        res.update(header_data)
         dat.append(res)
 
     dat = list_of_dict_to_dict_of_arr(dat)
@@ -156,3 +171,47 @@ if __name__ == '__main__':
         print('dr:', np.mean(dat['dr']), np.std(dat['dr']))
         print('dx s/c:', np.mean(dat['dx_sc']), np.std(dat['dx_sc']))
         print('dy s/c:', np.mean(dat['dy_sc']), np.std(dat['dy_sc']))
+
+    plt.clf()
+    ax = plt.gca()
+    # All data
+    for name, dat, kw in datasets:
+        ms = 3
+        ax.plot(dat['DSUN_AU'], dat['dx_sc'], color='C0', ms=ms, **kw)
+        ax.plot(dat['DSUN_AU'], dat['dy_sc'], color='C1', ms=ms, **kw)
+    ax.set_xlabel('Solar Distance [AU]')
+    ax.set_ylabel('Offset [arcsec]')
+    handles, _ = ax.get_legend_handles_labels()
+    if not handles:
+        handles = [
+            plt.Line2D(
+                [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            plt.Line2D(
+                [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            ]
+        for name, _, kw in datasets:
+            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+    legend_prop = dict(
+        ncol=3,
+        loc='lower right',
+        bbox_to_anchor=(1, 1),
+        fancybox=False,
+        fontsize=10,
+        )
+    ax.legend(handles=handles, **legend_prop)
+    # etframes.add_range_frame(ax)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.axhline(-83, color='C0', lw=.5)
+    ax.axhline(-68, color='C1', lw=.5)
+    x0, x1 = ax.get_xlim()
+    x = x1  # + (x1 - x0) / 50
+    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
+    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
+    plt.savefig(f'output/coalign_TxTy_sc_all_dsun.pdf')
+    plt.xlim(.32, .34)
+    plt.savefig(f'output/coalign_TxTy_sc_all_dsun_zoom.pdf')
