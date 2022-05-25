@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.interpolate as si
+import spiceypy.utils.exceptions
 import yaml
 
 from eui.euiprep import euiprep
@@ -729,14 +730,17 @@ if __name__ == '__main__':
 
         if not args.no_stew:
             print('Correcting pointing with SPICE kernels')
-            spice_file_aligned = spice_stew.correct_spice_pointing(
-                ssp,
-                spice_file,
-                f'{args.output_dir}/spice_stew',
-                overwrite=False,
-                plot_results=True,
-                sum_wvl=True,
-                )
+            try:
+                spice_file_aligned = spice_stew.correct_spice_pointing(
+                    ssp,
+                    spice_file,
+                    f'{args.output_dir}/spice_stew',
+                    overwrite=False,
+                    plot_results=True,
+                    sum_wvl=True,
+                    )
+            except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
+                continue
         else:
             print('Applying dummy SPICE kernel pointing correction')
             spice_file_aligned = dummy_stew(
