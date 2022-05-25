@@ -63,7 +63,7 @@ def get_data(output_dir):
     m = (dat['max_cc'] > 0.2)
     m &= (dat['dr'] < 50)
     m &= (np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600 < 200)
-    dat = {k: v[m] for k, v in dat.items()}
+    dat = pd.DataFrame({k: v[m] for k, v in dat.items()})
 
     return dat
 
