@@ -58,6 +58,7 @@ if __name__ == '__main__':
         ('Cal. Lyβ', get_data('output/CAL_COALIGN_Lyb'), dict(marker='o')),
         ('Syn. Lyβ', get_data('output/SYN_Lyb'), dict(marker='s')),
         ('Syn. Lyγ CIII', get_data('output/SYN_Lyg_CIII'), dict(marker='D')),
+        ('Syn. CIII', get_data('output/SYN_CIII'), dict(marker='*')),
         ]
     kw_common = dict(fillstyle='none', ls='')
     for _, _, kw in datasets:
