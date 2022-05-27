@@ -179,7 +179,7 @@ if __name__ == '__main__':
         ms = 3
         ax.plot(dat['DSUN_AU'], dat['dx_sc'], color='C0', ms=ms, **kw)
         ax.plot(dat['DSUN_AU'], dat['dy_sc'], color='C1', ms=ms, **kw)
-    ax.set_xlabel('Solar Distance [AU]')
+    ax.set_xlabel('Solar distance [au]')
     ax.set_ylabel('Offset [arcsec]')
     handles, _ = ax.get_legend_handles_labels()
     if not handles:
