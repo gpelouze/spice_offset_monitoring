@@ -49,6 +49,9 @@ def get_data(output_dir):
         res.update(header_data)
         dat.append(res)
 
+    if len(dat) == 0:
+        return None
+
     dat = list_of_dict_to_dict_of_arr(dat)
 
     # add columns
@@ -78,6 +81,9 @@ if __name__ == '__main__':
     kw_common = dict(fillstyle='none', ls='')
     for _, _, kw in datasets:
         kw.update(kw_common)
+    datasets = [(name, dat, kw)
+                for (name, dat, kw) in datasets
+                if dat is not None]
 
     fig1 = plt.figure(1, clear=True)
     fig2 = plt.figure(2, clear=True)
