@@ -376,7 +376,7 @@ def get_fsi_image_data(filename):
         FITS header
     '''
     hdulist = fits.open(filename)
-    hdu = hdulist[0]
+    hdu = hdulist[-1]
     return hdu.data, hdu.header
 
 
