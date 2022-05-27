@@ -9,12 +9,18 @@ from quick_spice_fsi_coalign import SpiceUtils
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('start_date',
+    p.add_argument('--start-date', required=True,
                    help='processing start date (YYYY-MM-DD)')
-    p.add_argument('end_date',
+    p.add_argument('--end-date', required=True,
                    help='processing end date (YYYY-MM-DD)')
-    p.add_argument('study_id', nargs='+',
+    p.add_argument('--study-id', nargs='+',
                    help='study ID in MISO')
+    p.add_argument('--spec-win', required=True,
+                   help='spectral window')
+    p.add_argument('--no-stew', action='store_true',
+                   help='skip jitter correction using spice_stew')
+    p.add_argument('--output-dir', default='./output',
+                   help='output directory')
     p.add_argument('-v', '--verbose', action='store_true',
                    help='print detailled info')
     args = p.parse_args()
