@@ -256,8 +256,8 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
 
     Returns
     =======
-    filename : str or None
-        Closest FSI FITS, if there is one.
+    fsi_file : dict or None
+        Dictionary containing info about the closest FSI file, if there is one.
     '''
     os.makedirs(output_dir, exist_ok=True)
 
