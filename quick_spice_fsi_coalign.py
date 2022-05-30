@@ -41,6 +41,7 @@ class SpiceUtils:
         ''',
         re.VERBOSE)
 
+    @staticmethod
     def read_spice_uio_catalog():
         """
         Read UiO text table SPICE FITS files catalog
@@ -69,16 +70,19 @@ class SpiceUtils:
         df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
         return df
 
+    @staticmethod
     def parse_filename(filename):
         m = SpiceUtils.re_spice_L123_filename.match(filename)
         if m is None:
             raise ValueError(f'could not parse SPICE filename: {filename}')
         return m.groupdict()
 
+    @staticmethod
     def filename_to_date(filename):
         d = SpiceUtils.parse_filename(filename)
         return parse_date(d['time'])
 
+    @staticmethod
     def ias_fullpath(filename):
         d = SpiceUtils.parse_filename(filename)
         date = parse_date(d['time'])
@@ -92,6 +96,7 @@ class SpiceUtils:
 
         return fullpath
 
+    @staticmethod
     def slit_px(header):
         ''' Compute the first and last pixel of the slit from a FITS header '''
         ybin = header['NBIN2']
@@ -112,11 +117,13 @@ class SpiceUtils:
 
 
 class EuiUtils:
+    @staticmethod
     def ias_fullpath(rob_fullpath):
         p = rob_fullpath.lstrip('/data/solo-eui/internal/')
         p = '/archive/SOLAR-ORBITER/EUI/data_internal/' + p
         return p
 
+    @staticmethod
     def local_L2_path(output_dir, fsi_file_L1):
         base = os.path.basename(fsi_file_L1)
         base = base.replace('L1', 'L2')
