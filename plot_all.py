@@ -92,9 +92,11 @@ if __name__ == '__main__':
     kw_common = dict(fillstyle='none', ls='')
     for _, _, kw in datasets:
         kw.update(kw_common)
-    datasets = [(name, filter_data(dat), kw)
+    datasets = [(name, dat, kw)
                 for (name, dat, kw) in datasets
                 if dat is not None]
+    datasets_filtered = [(name, filter_data(dat), kw)
+                         for (name, dat, kw) in datasets]
 
     fig1 = plt.figure(1, clear=True)
     fig2 = plt.figure(2, clear=True)
@@ -102,16 +104,16 @@ if __name__ == '__main__':
     ax1 = fig1.gca()
     ax2 = fig2.gca(sharex=ax1)
     ax3 = fig3.gca(sharex=ax1)
-    ax1.set_title('SPICE offset\n(per raster)', loc='left')
+    ax1.set_title('SPICE offset', loc='left')
     ax2.set_title('SPICE offset\n(monthly)', loc='left')
     ax3.set_title('SPICE offset (monthly average)', loc='left')
     # All data
-    for name, dat, kw in datasets:
+    for name, dat, kw in datasets_filtered:
         ms = 3
         ax1.plot(dat['date'], dat['dx_sc'], color='C0', ms=ms, **kw)
         ax1.plot(dat['date'], dat['dy_sc'], color='C1', ms=ms, **kw)
     # Monthly avg per study group
-    for i, (name, dat, kw) in enumerate(datasets):
+    for i, (name, dat, kw) in enumerate(datasets_filtered):
         datg = pd.DataFrame(dat).groupby(pd.PeriodIndex(dat['date'], freq="M"))
         datm = datg.mean()
         dats = datg.std()
@@ -120,7 +122,7 @@ if __name__ == '__main__':
         ax2.errorbar(t, datm['dx_sc'].values, yerr=dats['dx_sc'].values, color='C0', capsize=3, elinewidth=1, **kw)
         ax2.errorbar(t, datm['dy_sc'].values, yerr=dats['dy_sc'].values, color='C1', capsize=3, elinewidth=1, **kw)
     # Monthly avg all
-    dat = pd.concat([pd.DataFrame(d[1]) for d in datasets])
+    dat = pd.concat([pd.DataFrame(d[1]) for d in datasets_filtered])
     datg = pd.DataFrame(dat).groupby(pd.PeriodIndex(dat['date'], freq="M"))
     datm = datg.mean()
     dats = datg.std()
@@ -138,7 +140,7 @@ if __name__ == '__main__':
                 plt.Line2D([], [], label='X', color='C0', marker=marker, mew=0, ms=12, ls=''),
                 plt.Line2D([], [], label='Y', color='C1', marker=marker, mew=0, ms=12, ls=''),
                 ]
-            for name, _, kw in datasets:
+            for name, _, kw in datasets_filtered:
                 handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
         legend_prop = {
             ax1: dict(
@@ -181,7 +183,7 @@ if __name__ == '__main__':
     fig2.savefig(f'output/coalign_TxTy_sc_all_monthly.pdf')
     fig3.savefig(f'output/coalign_TxTy_sc_all_monthly_grouped.pdf')
 
-    for name, dat, kw in datasets:
+    for name, dat, kw in datasets_filtered:
         print('\n', name, sep='')
         print('dx:', np.mean(dat['dx']), np.std(dat['dx']))
         print('dy:', np.mean(dat['dy']), np.std(dat['dy']))
@@ -191,8 +193,9 @@ if __name__ == '__main__':
 
     plt.clf()
     ax = plt.gca()
+    ax.set_title('SPICE offset', loc='left')
     # All data
-    for name, dat, kw in datasets:
+    for name, dat, kw in datasets_filtered:
         ms = 3
         ax.plot(dat['DSUN_AU'], dat['dx_sc'], color='C0', ms=ms, **kw)
         ax.plot(dat['DSUN_AU'], dat['dy_sc'], color='C1', ms=ms, **kw)
@@ -210,7 +213,7 @@ if __name__ == '__main__':
                 ls=''
                 ),
             ]
-        for name, _, kw in datasets:
+        for name, _, kw in datasets_filtered:
             handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
     legend_prop = dict(
         ncol=3,
@@ -232,3 +235,52 @@ if __name__ == '__main__':
     plt.savefig(f'output/coalign_TxTy_sc_all_dsun.pdf')
     plt.xlim(.32, .34)
     plt.savefig(f'output/coalign_TxTy_sc_all_dsun_zoom.pdf')
+
+    plt.clf()
+    ax = plt.gca()
+    ax.set_title('SPICE offset\n($d <$ 0.6 au)', loc='left')
+    # All data
+    for name, dat, kw in datasets:
+        ms = 3
+        m = (
+            (dat['max_cc'] > 0.2)
+            & (dat['dr'] < 40)
+            & (dat['DSUN_AU'] < .6)
+            )
+        dat = dat[m]
+        ax.plot(dat['R_cen'], dat['dx_sc'], color='C0', ms=ms, **kw)
+        ax.plot(dat['R_cen'], dat['dy_sc'], color='C1', ms=ms, **kw)
+    ax.set_xlabel('Raster center [$R_\odot$]')
+    ax.set_ylabel('Offset [arcsec]')
+    handles, _ = ax.get_legend_handles_labels()
+    if not handles:
+        handles = [
+            plt.Line2D(
+                [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            plt.Line2D(
+                [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            ]
+        for name, _, kw in datasets_filtered:
+            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+    legend_prop = dict(
+        ncol=3,
+        loc='lower right',
+        bbox_to_anchor=(1, 1),
+        fancybox=False,
+        fontsize=10,
+        )
+    ax.legend(handles=handles, **legend_prop)
+    # etframes.add_range_frame(ax)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.axhline(-83, color='C0', lw=.5)
+    ax.axhline(-68, color='C1', lw=.5)
+    x0, x1 = ax.get_xlim()
+    x = x1  # + (x1 - x0) / 50
+    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
+    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
+    plt.savefig(f'output/coalign_TxTy_sc_all_Rcen.pdf')
