@@ -61,14 +61,25 @@ def get_data(output_dir):
     dat['dy_sc'] = dat['dx'] * np.sin(r) + dat['dy'] * np.cos(r)
     dat['dx_sc'] -= 83
     dat['dy_sc'] -= 68
+    # R_cen: Distance between raster center and Sun center
+    R_sun = 959.23 / dat['DSUN_AU']  # arcsec
+    R = np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600  # arcsec
+    dat['R_cen'] = R / R_sun  # R_sun
 
-    # filter
-    m = (dat['max_cc'] > 0.2)
-    m &= (dat['dr'] < 50)
-    m &= (np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600 < 200)
-    dat = pd.DataFrame({k: v[m] for k, v in dat.items()})
+    return pd.DataFrame(dat)
 
-    return dat
+
+def filter_data(df):
+    print()
+    m_cc = (df['max_cc'] > 0.2)
+    print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
+    m_dr = (df['dr'] < 50)
+    print(f'Frames with dr > 50: {1 - m_dr.mean():.1%}')
+    m_R = (df['R_cen'] < 0.2)
+    print(f'Frames with R_sun > 0.2: {1 - m_R.mean():.1%}')
+    m = m_cc & m_dr & m_R
+    print(f'Discarded frames: {1 - m.mean():.1%}')
+    return df[m]
 
 
 if __name__ == '__main__':
@@ -81,7 +92,7 @@ if __name__ == '__main__':
     kw_common = dict(fillstyle='none', ls='')
     for _, _, kw in datasets:
         kw.update(kw_common)
-    datasets = [(name, dat, kw)
+    datasets = [(name, filter_data(dat), kw)
                 for (name, dat, kw) in datasets
                 if dat is not None]
 
