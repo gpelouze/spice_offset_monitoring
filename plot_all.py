@@ -86,6 +86,60 @@ def filter_data(df):
     return df[m]
 
 
+def plot_pointing(datasets, x_key, x_label, filename, date=False,
+                  title='SPICE offset'):
+    plt.clf()
+    ax = plt.gca()
+    ax.set_title(title, loc='left')
+    # All data
+    for name, dat, kw in datasets:
+        ms = 3
+        ax.plot(dat[x_key], dat['dx_sc'], color='C0', ms=ms, **kw)
+        ax.plot(dat[x_key], dat['dy_sc'], color='C1', ms=ms, **kw)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel('Offset [arcsec]')
+    handles, _ = ax.get_legend_handles_labels()
+    if not handles:
+        handles = [
+            plt.Line2D(
+                [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            plt.Line2D(
+                [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
+                ls=''
+                ),
+            ]
+        for name, _, kw in datasets:
+            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+    # legend
+    legend_prop = dict(
+        ncol=3,
+        loc='lower right',
+        bbox_to_anchor=(1, 1),
+        fancybox=False,
+        fontsize=10,
+        )
+    ax.legend(handles=handles, **legend_prop)
+    # remove axes frame
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    # Bill's values
+    ax.axhline(-83, color='C0', lw=.5)
+    ax.axhline(-68, color='C1', lw=.5)
+    x0, x1 = ax.get_xlim()
+    x = x1  # + (x1 - x0) / 50
+    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
+    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
+    # date
+    if date:
+        ax.figure.autofmt_xdate()
+        ax.xaxis.set_major_locator(mpl.dates.MonthLocator(bymonth=[1, 4, 7, 10]))
+        ax.xaxis.set_minor_locator(mpl.dates.MonthLocator())
+        ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%b %y"))
+    plt.savefig(filename)
+
+
 if __name__ == '__main__':
     datasets = [
         ('Cal. Lyβ', get_data('output/CAL_COALIGN_Lyb'), dict(marker='o')),
@@ -102,250 +156,32 @@ if __name__ == '__main__':
     datasets_filtered = [(name, filter_data(dat), kw)
                          for (name, dat, kw) in datasets]
 
-    fig1 = plt.figure(1, clear=True)
-    fig2 = plt.figure(2, clear=True)
-    fig3 = plt.figure(3, clear=True)
-    ax1 = fig1.gca()
-    ax2 = fig2.gca(sharex=ax1)
-    ax3 = fig3.gca(sharex=ax1)
-    ax1.set_title('SPICE offset', loc='left')
-    ax2.set_title('SPICE offset\n(monthly)', loc='left')
-    ax3.set_title('SPICE offset (monthly average)', loc='left')
-    # All data
-    for name, dat, kw in datasets_filtered:
-        ms = 3
-        ax1.plot(dat['date'], dat['dx_sc'], color='C0', ms=ms, **kw)
-        ax1.plot(dat['date'], dat['dy_sc'], color='C1', ms=ms, **kw)
-    # Monthly avg per study group
-    for i, (name, dat, kw) in enumerate(datasets_filtered):
-        datg = pd.DataFrame(dat).groupby(pd.PeriodIndex(dat['date'], freq="M"))
-        datm = datg.mean()
-        dats = datg.std()
-        t = datm.index.to_timestamp().to_numpy()
-        t = t + np.timedelta64(15, 'D') + (i-1)*np.timedelta64(10, 'D')
-        ax2.errorbar(t, datm['dx_sc'].values, yerr=dats['dx_sc'].values, color='C0', capsize=3, elinewidth=1, **kw)
-        ax2.errorbar(t, datm['dy_sc'].values, yerr=dats['dy_sc'].values, color='C1', capsize=3, elinewidth=1, **kw)
-    # Monthly avg all
-    dat = pd.concat([pd.DataFrame(d[1]) for d in datasets_filtered])
-    datg = pd.DataFrame(dat).groupby(pd.PeriodIndex(dat['date'], freq="M"))
-    datm = datg.mean()
-    dats = datg.std()
-    t = datm.index.to_timestamp().to_numpy()
-    t = t + np.timedelta64(15, 'D')
-    ax3.errorbar(t, datm['dx_sc'].values, yerr=dats['dx_sc'].values, label='X', color='C0', marker='x', capsize=3, elinewidth=1, **kw_common)
-    ax3.errorbar(t, datm['dy_sc'].values, yerr=dats['dy_sc'].values, label='Y', color='C1', marker='x', capsize=3, elinewidth=1, **kw_common)
-    #
-    for ax in (ax1, ax2, ax3):
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Offset [arcsec]')
-        handles, _ = ax.get_legend_handles_labels()
-        if not handles:
-            handles = [
-                plt.Line2D([], [], label='X', color='C0', marker=marker, mew=0, ms=12, ls=''),
-                plt.Line2D([], [], label='Y', color='C1', marker=marker, mew=0, ms=12, ls=''),
-                ]
-            for name, _, kw in datasets_filtered:
-                handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-        legend_prop = {
-            ax1: dict(
-                ncol=3,
-                loc='lower right',
-                bbox_to_anchor=(1, 1),
-                fancybox=False,
-                fontsize=10,
-                ),
-            ax2: dict(
-                ncol=3,
-                loc='lower right',
-                bbox_to_anchor=(1, 1),
-                fancybox=False,
-                fontsize=10,
-                ),
-            ax3: dict(
-                ncol=3,
-                loc='lower right',
-                bbox_to_anchor=(1, 1),
-                fancybox=False,
-                fontsize=10,
-                ),
-            }[ax]
-        ax.legend(handles=handles, **legend_prop)
-        ax.figure.autofmt_xdate()
-        ax.xaxis.set_major_locator(mpl.dates.MonthLocator(bymonth=[1, 4, 7, 10]))
-        ax.xaxis.set_minor_locator(mpl.dates.MonthLocator())
-        ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%b %y"))
-        # etframes.add_range_frame(ax)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.axhline(-83, color='C0', lw=.5)
-        ax.axhline(-68, color='C1', lw=.5)
-        x0, x1 = ax.get_xlim()
-        x = x1 # + (x1 - x0) / 50
-        ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
-        ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
-    fig1.savefig(f'output/coalign_TxTy_sc_all.pdf')
-    fig2.savefig(f'output/coalign_TxTy_sc_all_monthly.pdf')
-    fig3.savefig(f'output/coalign_TxTy_sc_all_monthly_grouped.pdf')
-
     for name, dat, kw in datasets_filtered:
         print('\n', name, sep='')
-        print('dx:', np.mean(dat['dx']), np.std(dat['dx']))
-        print('dy:', np.mean(dat['dy']), np.std(dat['dy']))
-        print('dr:', np.mean(dat['dr']), np.std(dat['dr']))
-        print('dx s/c:', np.mean(dat['dx_sc']), np.std(dat['dx_sc']))
-        print('dy s/c:', np.mean(dat['dy_sc']), np.std(dat['dy_sc']))
+        for k in ['dx', 'dy', 'dr', 'dx_sc', 'dy_sc']:
+            print(f'{k}:', np.mean(dat[k]), np.std(dat[k]))
 
-    plt.clf()
-    ax = plt.gca()
-    ax.set_title('SPICE offset', loc='left')
-    # All data
-    for name, dat, kw in datasets_filtered:
-        ms = 3
-        ax.plot(dat['DSUN_AU'], dat['dx_sc'], color='C0', ms=ms, **kw)
-        ax.plot(dat['DSUN_AU'], dat['dy_sc'], color='C1', ms=ms, **kw)
-    ax.set_xlabel('Solar distance [au]')
-    ax.set_ylabel('Offset [arcsec]')
-    handles, _ = ax.get_legend_handles_labels()
-    if not handles:
-        handles = [
-            plt.Line2D(
-                [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
-                ls=''
-                ),
-            plt.Line2D(
-                [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
-                ls=''
-                ),
-            ]
-        for name, _, kw in datasets_filtered:
-            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-    legend_prop = dict(
-        ncol=3,
-        loc='lower right',
-        bbox_to_anchor=(1, 1),
-        fancybox=False,
-        fontsize=10,
-        )
-    ax.legend(handles=handles, **legend_prop)
-    # etframes.add_range_frame(ax)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.axhline(-83, color='C0', lw=.5)
-    ax.axhline(-68, color='C1', lw=.5)
-    x0, x1 = ax.get_xlim()
-    x = x1  # + (x1 - x0) / 50
-    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
-    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
-    plt.savefig(f'output/coalign_TxTy_sc_all_dsun.pdf')
+    plot_pointing(datasets_filtered, 'date', 'Date',
+                  'output/coalign_TxTy_sc_all.pdf', date=True)
+    plot_pointing(datasets_filtered, 'DSUN_AU', 'Solar distance [au]',
+                  'output/coalign_TxTy_sc_all_dsun.pdf')
+    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
+        plot_pointing(datasets_filtered, T_key, f'{T_key} [°C]',
+                      f'output/coalign_TxTy_sc_all_{T_key}.pdf')
 
-    plt.clf()
-    ax = plt.gca()
-    ax.set_title('SPICE offset\n($d <$ 0.6 au)', loc='left')
-    # All data
-    for name, dat, kw in datasets:
-        ms = 3
+    def filter_data_R_cen(dat):
         m = (
             (dat['max_cc'] > 0.2)
             & (dat['dr'] < 40)
             & (dat['DSUN_AU'] < .6)
             )
-        dat = dat[m]
-        ax.plot(dat['R_cen'], dat['dx_sc'], color='C0', ms=ms, **kw)
-        ax.plot(dat['R_cen'], dat['dy_sc'], color='C1', ms=ms, **kw)
-    ax.set_xlabel('Raster center [$R_\odot$]')
-    ax.set_ylabel('Offset [arcsec]')
-    handles, _ = ax.get_legend_handles_labels()
-    if not handles:
-        handles = [
-            plt.Line2D(
-                [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
-                ls=''
-                ),
-            plt.Line2D(
-                [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
-                ls=''
-                ),
-            ]
-        for name, _, kw in datasets_filtered:
-            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-    legend_prop = dict(
-        ncol=3,
-        loc='lower right',
-        bbox_to_anchor=(1, 1),
-        fancybox=False,
-        fontsize=10,
+        return dat[m]
+    datasets_filtered_R_cen = [(name, filter_data_R_cen(dat), kw)
+                               for (name, dat, kw) in datasets]
+    plot_pointing(
+        datasets_filtered_R_cen,
+        'R_cen',
+        'Raster center [$R_\\odot$]',
+        'output/coalign_TxTy_sc_all_Rcen.pdf',
+        title='SPICE offset\n($d <$ 0.6 au)',
         )
-    ax.legend(handles=handles, **legend_prop)
-    # etframes.add_range_frame(ax)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.axhline(-83, color='C0', lw=.5)
-    ax.axhline(-68, color='C1', lw=.5)
-    x0, x1 = ax.get_xlim()
-    x = x1  # + (x1 - x0) / 50
-    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
-    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
-    plt.savefig(f'output/coalign_TxTy_sc_all_Rcen.pdf')
-
-    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
-        plt.clf()
-        ax = plt.gca()
-        ax.set_title('SPICE offset', loc='left')
-        # All data
-        for name, dat, kw in datasets_filtered:
-            ms = 3
-            ax.plot(dat[T_key], dat['dx_sc'], color='C0', ms=ms, **kw)
-            ax.plot(dat[T_key], dat['dy_sc'], color='C1', ms=ms, **kw)
-        ax.set_xlabel(f'{T_key} [°C]')
-        ax.set_ylabel('Offset [arcsec]')
-        handles, _ = ax.get_legend_handles_labels()
-        if not handles:
-            handles = [
-                plt.Line2D(
-                    [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
-                    ls=''
-                    ),
-                plt.Line2D(
-                    [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
-                    ls=''
-                    ),
-                ]
-            for name, _, kw in datasets_filtered:
-                handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-        legend_prop = dict(
-            ncol=3,
-            loc='lower right',
-            bbox_to_anchor=(1, 1),
-            fancybox=False,
-            fontsize=10,
-            )
-        ax.legend(handles=handles, **legend_prop)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.axhline(-83, color='C0', lw=.5)
-        ax.axhline(-68, color='C1', lw=.5)
-        plt.savefig(f'output/coalign_TxTy_sc_all_{T_key}.pdf')
-
-    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
-        plt.clf()
-        ax = plt.gca()
-        ax.set_title('SPICE offset', loc='left')
-        # All data
-        handles = []
-        for name, dat, kw in datasets_filtered:
-            ms = 3
-            ax.plot(dat['DSUN_AU'], dat[T_key], color='k', ms=ms, **kw)
-            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-        ax.set_xlabel('Distance [au]')
-        ax.set_ylabel(f'{T_key} [°C]')
-        legend_prop = dict(
-            ncol=3,
-            loc='lower right',
-            bbox_to_anchor=(1, 1),
-            fancybox=False,
-            fontsize=10,
-            )
-        ax.legend(handles=handles, **legend_prop)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        plt.savefig(f'output/coalign_TxTy_sc_all_{T_key}.pdf')
