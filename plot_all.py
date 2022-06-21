@@ -28,6 +28,10 @@ def get_header_data(fname):
     header = hdul[0].header
     keywords = [
         'DSUN_AU',
+        'T_GRAT',
+        'T_FOCUS',
+        'T_SW',
+        'T_LW',
         ]
     return {kw: header[kw] for kw in keywords}
 
@@ -233,8 +237,6 @@ if __name__ == '__main__':
     ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
     ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
     plt.savefig(f'output/coalign_TxTy_sc_all_dsun.pdf')
-    plt.xlim(.32, .34)
-    plt.savefig(f'output/coalign_TxTy_sc_all_dsun_zoom.pdf')
 
     plt.clf()
     ax = plt.gca()
@@ -284,3 +286,66 @@ if __name__ == '__main__':
     ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
     ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
     plt.savefig(f'output/coalign_TxTy_sc_all_Rcen.pdf')
+
+    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
+        plt.clf()
+        ax = plt.gca()
+        ax.set_title('SPICE offset', loc='left')
+        # All data
+        for name, dat, kw in datasets_filtered:
+            ms = 3
+            ax.plot(dat[T_key], dat['dx_sc'], color='C0', ms=ms, **kw)
+            ax.plot(dat[T_key], dat['dy_sc'], color='C1', ms=ms, **kw)
+        ax.set_xlabel(f'{T_key} [°C]')
+        ax.set_ylabel('Offset [arcsec]')
+        handles, _ = ax.get_legend_handles_labels()
+        if not handles:
+            handles = [
+                plt.Line2D(
+                    [], [], label='X', color='C0', marker=marker, mew=0, ms=12,
+                    ls=''
+                    ),
+                plt.Line2D(
+                    [], [], label='Y', color='C1', marker=marker, mew=0, ms=12,
+                    ls=''
+                    ),
+                ]
+            for name, _, kw in datasets_filtered:
+                handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+        legend_prop = dict(
+            ncol=3,
+            loc='lower right',
+            bbox_to_anchor=(1, 1),
+            fancybox=False,
+            fontsize=10,
+            )
+        ax.legend(handles=handles, **legend_prop)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.axhline(-83, color='C0', lw=.5)
+        ax.axhline(-68, color='C1', lw=.5)
+        plt.savefig(f'output/coalign_TxTy_sc_all_{T_key}.pdf')
+
+    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
+        plt.clf()
+        ax = plt.gca()
+        ax.set_title('SPICE offset', loc='left')
+        # All data
+        handles = []
+        for name, dat, kw in datasets_filtered:
+            ms = 3
+            ax.plot(dat['DSUN_AU'], dat[T_key], color='k', ms=ms, **kw)
+            handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+        ax.set_xlabel('Distance [au]')
+        ax.set_ylabel(f'{T_key} [°C]')
+        legend_prop = dict(
+            ncol=3,
+            loc='lower right',
+            bbox_to_anchor=(1, 1),
+            fancybox=False,
+            fontsize=10,
+            )
+        ax.legend(handles=handles, **legend_prop)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.savefig(f'output/coalign_TxTy_sc_all_{T_key}.pdf')
