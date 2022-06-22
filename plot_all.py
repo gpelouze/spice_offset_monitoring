@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import abc
 import glob
 import os
 
@@ -11,6 +12,8 @@ import svgpath2mpl
 import yaml
 from astropy.io import fits
 import tqdm
+from scipy.optimize import curve_fit
+import sklearn.metrics as skm
 
 from quick_spice_fsi_coalign import SpiceUtils
 from plot_alignment_results import list_of_dict_to_dict_of_arr
@@ -100,7 +103,7 @@ def filter_data_R_cen(df):
 
 
 def plot_pointing(df, x_key, x_label, filename, date=False,
-                  title='SPICE offset'):
+                  title='SPICE offset', fit_func=None):
     plt.clf()
     ax = plt.gca()
     ax.set_title(title, loc='left')
@@ -120,8 +123,30 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
             )
         ax.plot(r[x_key], r['dx_sc'], color='C0', **kw)
         ax.plot(r[x_key], r['dy_sc'], color='C1', **kw)
+    # fit
+    if fit_func is not None:
+        x = df[x_key]
+        for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
+            f = fit_func(x, y)
+            f.fit()
+            ax.plot(f.xopt(), f.yopt(), color=f'C{i}', ls='-', lw=1)
+            print(
+                'fit',
+                {0: 'x', 1: 'y'}[i],
+                '%',
+                x_key,
+                ':',
+                'popt',
+                f.popt,
+                'perr',
+                f.perr(),
+                'R2',
+                f.r2(),
+                )
+    # labels
     ax.set_xlabel(x_label)
     ax.set_ylabel('Offset [arcsec]')
+    # legend
     handles, _ = ax.get_legend_handles_labels()
     if not handles:
         handles = [
@@ -141,7 +166,6 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
                 marker=markers[name],
                 )
             handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
-    # legend
     legend_prop = dict(
         ncol=3,
         loc='lower right',
@@ -154,8 +178,8 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     # Bill's values
-    ax.axhline(-83, color='C0', lw=.5)
-    ax.axhline(-68, color='C1', lw=.5)
+    ax.axhline(-83, color='C0', ls='--', lw=.5)
+    ax.axhline(-68, color='C1', ls='--', lw=.5)
     x0, x1 = ax.get_xlim()
     x = x1  # + (x1 - x0) / 50
     ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
@@ -166,7 +190,57 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
         ax.xaxis.set_major_locator(mpl.dates.MonthLocator(bymonth=[1, 4, 7, 10]))
         ax.xaxis.set_minor_locator(mpl.dates.MonthLocator())
         ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%b %y"))
+    plt.tight_layout()
     plt.savefig(filename)
+
+
+class FitFunctions:
+    class _Base:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+            self.popt = None
+            self.pcov = None
+
+        @abc.abstractmethod
+        def __call__(self, x, *args):
+            pass
+
+        def p0(self):
+            return None
+
+        def fit(self):
+            self.popt, self.pcov = curve_fit(
+                self,
+                self.x,
+                self.y,
+                p0=self.p0(),
+                )
+
+        def xopt(self, n=100):
+            # return np.linspace(np.min(self.x), np.max(self.x), n)
+            return np.sort(self.x)
+
+        def yopt(self):
+            return self(self.xopt(), *self.popt)
+
+        def perr(self):
+            return np.sqrt(np.diag(self.pcov))
+
+        def r2(self):
+            y_pred = self(self.x, *self.popt)
+            return skm.r2_score(self.y, y_pred)
+
+    class Linear(_Base):
+        def __call__(self, x, a, b):
+            return a * x + b
+
+        def p0(self):
+            return [np.ptp(self.y), np.min(self.y)]
+
+    class InverseSq(_Base):
+        def __call__(self, x, a, b):
+            return a / x + b
 
 
 if __name__ == '__main__':
@@ -182,11 +256,17 @@ if __name__ == '__main__':
     plot_pointing(dat_filtered, 'date', 'Date',
                   'output/coalign_TxTy_sc_all.pdf', date=True)
     plot_pointing(dat_filtered, 'DSUN_AU', 'Solar distance [au]',
-                  'output/coalign_TxTy_sc_all_dsun.pdf')
+                  'output/coalign_TxTy_sc_all_dsun.pdf',
+                  fit_func=FitFunctions.InverseSq,
+                  )
     plot_pointing(dat_filtered_R_cen, 'R_cen',
                   'Raster center [$R_\\odot$]',
                   'output/coalign_TxTy_sc_all_Rcen.pdf',
-                  title='SPICE offset\n($d <$ 0.6 au)')
+                  title='SPICE offset\n($d <$ 0.6 au)',
+                  fit_func=FitFunctions.Linear,
+                  )
     for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
         plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
-                      f'output/coalign_TxTy_sc_all_{T_key}.pdf')
+                      f'output/coalign_TxTy_sc_all_{T_key}.pdf',
+                      fit_func=FitFunctions.Linear,
+                      )
