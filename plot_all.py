@@ -3,7 +3,6 @@
 import glob
 import os
 
-from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,7 +35,7 @@ def get_header_data(fname):
     return {kw: header[kw] for kw in keywords}
 
 
-def get_data(output_dir):
+def get_data(source_name, output_dir):
     yml_fnames = glob.glob(f'{output_dir}/coalign_output/*_coaligned.yml')
 
     dat = []
@@ -70,6 +69,8 @@ def get_data(output_dir):
     R = np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600  # arcsec
     dat['R_cen'] = R / R_sun  # R_sun
 
+    dat['data_source'] = source_name
+
     return pd.DataFrame(dat)
 
 
@@ -86,16 +87,39 @@ def filter_data(df):
     return df[m]
 
 
-def plot_pointing(datasets, x_key, x_label, filename, date=False,
+def filter_data_R_cen(df):
+    m_cc = (df['max_cc'] > 0.2)
+    print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
+    m_dr = (df['dr'] < 40)
+    print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+    m_dsun = (df['DSUN_AU'] < 0.6)
+    print(f'Frames with d_sun > 0.6: {1 - m_dsun.mean():.1%}')
+    m = m_cc & m_dr & m_dsun
+    print(f'Discarded frames: {1 - m.mean():.1%}')
+    return df[m]
+
+
+def plot_pointing(df, x_key, x_label, filename, date=False,
                   title='SPICE offset'):
     plt.clf()
     ax = plt.gca()
     ax.set_title(title, loc='left')
     # All data
-    for name, dat, kw in datasets:
-        ms = 3
-        ax.plot(dat[x_key], dat['dx_sc'], color='C0', ms=ms, **kw)
-        ax.plot(dat[x_key], dat['dy_sc'], color='C1', ms=ms, **kw)
+    markers = {
+        'Cal. Lyβ': 'o',
+        'Lyβ': 's',
+        'Lyγ CIII': 'D',
+        'CIII': '*',
+        }
+    for _, r in df.iterrows():
+        kw = dict(
+            ms=3,
+            fillstyle='none',
+            ls='',
+            marker=markers[r.data_source],
+            )
+        ax.plot(r[x_key], r['dx_sc'], color='C0', **kw)
+        ax.plot(r[x_key], r['dy_sc'], color='C1', **kw)
     ax.set_xlabel(x_label)
     ax.set_ylabel('Offset [arcsec]')
     handles, _ = ax.get_legend_handles_labels()
@@ -110,7 +134,12 @@ def plot_pointing(datasets, x_key, x_label, filename, date=False,
                 ls=''
                 ),
             ]
-        for name, _, kw in datasets:
+        for name in dict.fromkeys(df.data_source):
+            kw = dict(
+                fillstyle='none',
+                ls='',
+                marker=markers[name],
+                )
             handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
     # legend
     legend_prop = dict(
@@ -141,47 +170,23 @@ def plot_pointing(datasets, x_key, x_label, filename, date=False,
 
 
 if __name__ == '__main__':
-    datasets = [
-        ('Cal. Lyβ', get_data('output/CAL_COALIGN_Lyb'), dict(marker='o')),
-        ('Syn. Lyβ', get_data('output/SYN_Lyb'), dict(marker='s')),
-        ('Syn. Lyγ CIII', get_data('output/SYN_Lyg_CIII'), dict(marker='D')),
-        ('Syn. CIII', get_data('output/SYN_CIII'), dict(marker='*')),
-        ]
-    kw_common = dict(fillstyle='none', ls='')
-    for _, _, kw in datasets:
-        kw.update(kw_common)
-    datasets = [(name, dat, kw)
-                for (name, dat, kw) in datasets
-                if dat is not None]
-    datasets_filtered = [(name, filter_data(dat), kw)
-                         for (name, dat, kw) in datasets]
+    dat = pd.concat([
+        get_data('Cal. Lyβ', 'output/CAL_COALIGN_Lyb'),
+        get_data('Syn. Lyβ', 'output/SYN_Lyb'),
+        get_data('Syn. Lyγ CIII', 'output/SYN_Lyg_CIII'),
+        get_data('Syn. CIII', 'output/SYN_CIII'),
+        ])
+    dat_filtered = filter_data(dat)
+    dat_filtered_R_cen = filter_data_R_cen(dat)
 
-    for name, dat, kw in datasets_filtered:
-        print('\n', name, sep='')
-        for k in ['dx', 'dy', 'dr', 'dx_sc', 'dy_sc']:
-            print(f'{k}:', np.mean(dat[k]), np.std(dat[k]))
-
-    plot_pointing(datasets_filtered, 'date', 'Date',
+    plot_pointing(dat_filtered, 'date', 'Date',
                   'output/coalign_TxTy_sc_all.pdf', date=True)
-    plot_pointing(datasets_filtered, 'DSUN_AU', 'Solar distance [au]',
+    plot_pointing(dat_filtered, 'DSUN_AU', 'Solar distance [au]',
                   'output/coalign_TxTy_sc_all_dsun.pdf')
+    plot_pointing(dat_filtered_R_cen, 'R_cen',
+                  'Raster center [$R_\\odot$]',
+                  'output/coalign_TxTy_sc_all_Rcen.pdf',
+                  title='SPICE offset\n($d <$ 0.6 au)')
     for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
-        plot_pointing(datasets_filtered, T_key, f'{T_key} [°C]',
+        plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
                       f'output/coalign_TxTy_sc_all_{T_key}.pdf')
-
-    def filter_data_R_cen(dat):
-        m = (
-            (dat['max_cc'] > 0.2)
-            & (dat['dr'] < 40)
-            & (dat['DSUN_AU'] < .6)
-            )
-        return dat[m]
-    datasets_filtered_R_cen = [(name, filter_data_R_cen(dat), kw)
-                               for (name, dat, kw) in datasets]
-    plot_pointing(
-        datasets_filtered_R_cen,
-        'R_cen',
-        'Raster center [$R_\\odot$]',
-        'output/coalign_TxTy_sc_all_Rcen.pdf',
-        title='SPICE offset\n($d <$ 0.6 au)',
-        )
