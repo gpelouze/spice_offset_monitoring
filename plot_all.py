@@ -71,35 +71,12 @@ def get_data(source_name, output_dir):
     R_sun = 959.23 / dat['DSUN_AU']  # arcsec
     R = np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600  # arcsec
     dat['R_cen'] = R / R_sun  # R_sun
+    dat['R_cen_x'] = dat['CRVAL1'] * 3600 / R_sun  # arcsec
+    dat['R_cen_y'] = dat['CRVAL2'] * 3600 / R_sun  # arcsec
 
     dat['data_source'] = source_name
 
     return pd.DataFrame(dat)
-
-
-def filter_data(df):
-    print()
-    m_cc = (df['max_cc'] > 0.2)
-    print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
-    m_dr = (df['dr'] < 50)
-    print(f'Frames with dr > 50: {1 - m_dr.mean():.1%}')
-    m_R = (df['R_cen'] < 0.2)
-    print(f'Frames with R_sun > 0.2: {1 - m_R.mean():.1%}')
-    m = m_cc & m_dr & m_R
-    print(f'Discarded frames: {1 - m.mean():.1%}')
-    return df[m]
-
-
-def filter_data_R_cen(df):
-    m_cc = (df['max_cc'] > 0.2)
-    print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
-    m_dr = (df['dr'] < 40)
-    print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
-    m_dsun = (df['DSUN_AU'] < 0.6)
-    print(f'Frames with d_sun > 0.6: {1 - m_dsun.mean():.1%}')
-    m = m_cc & m_dr & m_dsun
-    print(f'Discarded frames: {1 - m.mean():.1%}')
-    return df[m]
 
 
 def plot_pointing(df, x_key, x_label, filename, date=False,
@@ -243,15 +220,42 @@ class FitFunctions:
             return a / x + b
 
 
+class Filters:
+
+    @staticmethod
+    def center(df):
+        print()
+        m_cc = (df['max_cc'] > 0.2)
+        print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
+        m_dr = (df['dr'] < 40)
+        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_R = (df['R_cen'] < 0.2)
+        print(f'Frames with R_sun > 0.2: {1 - m_R.mean():.1%}')
+        m = m_cc & m_dr & m_R
+        print(f'Discarded frames: {1 - m.mean():.1%}')
+        return df[m]
+
+    @staticmethod
+    def disk(df):
+        m_cc = (df['max_cc'] > 0.2)
+        print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
+        m_dr = (df['dr'] < 40)
+        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_dsun = (df['DSUN_AU'] < 0.6)
+        print(f'Frames with d_sun > 0.6: {1 - m_dsun.mean():.1%}')
+        m = m_cc & m_dr & m_dsun
+        print(f'Discarded frames: {1 - m.mean():.1%}')
+        return df[m]
+
 if __name__ == '__main__':
     dat = pd.concat([
-        get_data('Cal. Lyβ', 'output/CAL_COALIGN_Lyb'),
-        get_data('Syn. Lyβ', 'output/SYN_Lyb'),
-        get_data('Syn. Lyγ CIII', 'output/SYN_Lyg_CIII'),
-        get_data('Syn. CIII', 'output/SYN_CIII'),
+        # get_data('Cal. Lyβ', 'output/CAL_COALIGN_Lyb'),
+        get_data('Lyβ', 'output/SYN_Lyb'),
+        get_data('Lyγ CIII', 'output/SYN_Lyg_CIII'),
+        get_data('CIII', 'output/SYN_CIII'),
         ])
-    dat_filtered = filter_data(dat)
-    dat_filtered_R_cen = filter_data_R_cen(dat)
+    dat_filtered = Filters.center(dat)
+    dat_filtered_disk = Filters.disk(dat)
 
     plot_pointing(dat_filtered, 'date', 'Date',
                   'output/coalign_TxTy_sc_all.pdf', date=True)
@@ -259,11 +263,21 @@ if __name__ == '__main__':
                   'output/coalign_TxTy_sc_all_dsun.pdf',
                   fit_func=FitFunctions.InverseSq,
                   )
-    plot_pointing(dat_filtered_R_cen, 'R_cen',
+    plot_pointing(dat_filtered_disk, 'R_cen',
                   'Raster center [$R_\\odot$]',
                   'output/coalign_TxTy_sc_all_Rcen.pdf',
-                  title='SPICE offset\n($d <$ 0.6 au)',
+                  title='SPICE offset',
                   fit_func=FitFunctions.Linear,
+                  )
+    plot_pointing(dat_filtered_disk, 'R_cen_x',
+                  'Raster center $x$ [$R_\\odot$]',
+                  'output/coalign_TxTy_sc_all_Rcen_x.pdf',
+                  title='SPICE offset',
+                  )
+    plot_pointing(dat_filtered_disk, 'R_cen_y',
+                  'Raster center $y$ [$R_\\odot$]',
+                  'output/coalign_TxTy_sc_all_Rcen_y.pdf',
+                  title='SPICE offset',
                   )
     for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
         plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
