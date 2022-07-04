@@ -106,7 +106,7 @@ class SpiceUtils:
         elif header['DETECTOR'] == 'LW':
             h_slit = 626 / ybin
         else:
-            raise ValueError(f"unknown detector: {h['DETECTOR']}")
+            raise ValueError(f"unknown detector: {header['DETECTOR']}")
         slit_beg = (h_detector - h_slit) / 2
         slit_end = h_detector - slit_beg
         slit_beg = slit_beg - header['PXBEG2'] / ybin + 1
@@ -303,7 +303,7 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
     return fsi_file_L2
 
 
-def dummy_stew(filename, output_dir, sum_wvl=False):
+def dummy_stew(filename, output_dir, sum_wvl=False, overwrite=False):
     os.makedirs(output_dir, exist_ok=True)
     # filename operations
     basename = os.path.splitext(os.path.basename(filename))[0]
@@ -329,7 +329,7 @@ def dummy_stew(filename, output_dir, sum_wvl=False):
             hdu.add_checksum()
 
     # save data
-    hdulist.writeto(output_fits, overwrite=True)
+    hdulist.writeto(output_fits, overwrite=overwrite)
 
     return output_fits
 
@@ -408,7 +408,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     '''
     os.makedirs(output_dir, exist_ok=True)
 
-    basename = os.path.basename(spice_file_aligned).rstrip('_remapped_img.fits')
+    basename = os.path.basename(spice_file).rstrip('_remapped_img.fits')
     new_spice_filename = f'{basename}_spice_img.fits'
     new_spice_filename = os.path.join(output_dir, new_spice_filename)
     new_fsi_filename = f'{basename}_fsi_img.fits'
@@ -754,6 +754,7 @@ if __name__ == '__main__':
                 spice_file,
                 f'{args.output_dir}/spice_stew_dummy',
                 sum_wvl=True,
+                overwrite=True,
                 )
         with fits.open(spice_file) as hdul:
             roll = hdul[0].header['CROTA']
