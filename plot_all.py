@@ -103,28 +103,27 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
     # fit
     if fit_func is not None:
         x = df[x_key]
+        print('Fits for', x_label)
         for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
             f = fit_func(x, y)
             f.fit()
-            ax.plot(f.xopt(), f.yopt(), color=f'C{i}', ls='-', lw=1)
-            print(
-                'fit',
-                {0: 'x', 1: 'y'}[i],
-                '%',
-                x_key,
-                ':',
-                'popt',
-                f.popt,
-                'perr',
-                f.perr(),
-                'R2',
-                f.r2(),
+            xy = {0: 'X', 1: 'Y'}[i]
+            fit_label = f.label(f'\\Delta {xy}', 'z')
+            ax.plot(
+                f.xopt(), f.yopt(),
+                color=f'C{i}', ls='-', lw=1,
+                label=fit_label,
                 )
+            print(fit_label)
+        plt.gca().add_artist(plt.legend(
+            loc='best',
+            fontsize=10,
+            ))
     # labels
     ax.set_xlabel(x_label)
     ax.set_ylabel('Offset [arcsec]')
     # legend
-    handles, _ = ax.get_legend_handles_labels()
+    handles = None
     if not handles:
         handles = [
             plt.Line2D(
@@ -183,6 +182,10 @@ class FitFunctions:
         def __call__(self, x, *args):
             pass
 
+        @abc.abstractmethod
+        def label(self, y, x, error=True, R2=True, fmt='.2f'):
+            pass
+
         def p0(self):
             return None
 
@@ -212,12 +215,46 @@ class FitFunctions:
         def __call__(self, x, a, b):
             return a * x + b
 
+        def label(self, y, x, error=True, R2=True, fmt='.2f'):
+            fmt = f'{{:{fmt}}}'
+            a, b = self.popt
+            a = fmt.format(a)
+            b = fmt.format(b)
+            if error:
+                aerr, berr = self.perr()
+                aerr = fmt.format(aerr)
+                berr = fmt.format(berr)
+                a = f'({a} ± {aerr})'
+                b = f'({b} ± {berr})'
+            if R2:
+                r2 = '{:.2f}'.format(self.r2())
+                return f'${y} = {a} {x} + {b}$ [$R^2 = {r2}$]'
+            else:
+                return f'${y} = {a} {x} + {b}$'
+
         def p0(self):
             return [np.ptp(self.y), np.min(self.y)]
 
     class InverseSq(_Base):
         def __call__(self, x, a, b):
-            return a / x + b
+            return a / x**2 + b
+
+        def label(self, y, x, error=True, R2=True, fmt='.2f'):
+            fmt = f'{{:{fmt}}}'
+            a, b = self.popt
+            a = fmt.format(a)
+            b = fmt.format(b)
+            if error:
+                aerr, berr = self.perr()
+                aerr = fmt.format(aerr)
+                berr = fmt.format(berr)
+                a = f'({a} ± {aerr})'
+                b = f'({b} ± {berr})'
+            if R2:
+                r2 = '{:.2f}'.format(self.r2())
+                return f'${y} = {a} / {x}² + {b}$ [$R^2 = {r2}$]'
+            else:
+                return f'${y} = {a} / {x}² + {b}$'
 
 
 class Filters:
@@ -246,6 +283,7 @@ class Filters:
         m = m_cc & m_dr & m_dsun
         print(f'Discarded frames: {1 - m.mean():.1%}')
         return df[m]
+
 
 if __name__ == '__main__':
     dat = pd.concat([
