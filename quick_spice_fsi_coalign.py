@@ -130,7 +130,7 @@ class EuiUtils:
         return os.path.join(output_dir, base)
 
 
-def list_spice_files(start_date, end_date, study_name=None, study_id=None):
+def list_spice_files(start_date, end_date, study_id):
     ''' Get list of SPICE files
 
     Parameters
@@ -139,8 +139,6 @@ def list_spice_files(start_date, end_date, study_name=None, study_id=None):
         Query start date
     end_date : str (YYYY-MM-DD)
         Query end date
-    study_name : str or None (default: None)
-        Study name.
     study_id: str or None (default: None)
         Study id in Miso.
 
@@ -149,19 +147,16 @@ def list_spice_files(start_date, end_date, study_name=None, study_id=None):
     filenames : list of str
         List of FITS
     '''
+    if type(study_id) is not str:
+        raise ValueError(f'study_id must be str (got {type(study_id)})')
 
     cat = SpiceUtils.read_spice_uio_catalog()
     filters = (
         (cat['DATE-BEG'] > start_date)
         & (cat['DATE-BEG'] <= end_date)
         & (cat['LEVEL'] == 'L2')
+        & (cat['MISOSTUD'] == study_id)
         )
-    if study_name is not None:
-        filters &= (cat['STUDY'] == study_name)
-    if study_id is not None:
-        if type(study_id) is not str:
-            raise ValueError(f'study_id must be str (got {type(study_id)})')
-        filters &= (cat['MISOSTUD'] == study_id)
     results = cat[filters]
     return list(results['FILENAME'])
 
@@ -685,8 +680,6 @@ if __name__ == '__main__':
                    help='processing start date (YYYY-MM-DD)')
     p.add_argument('--end-date', required=True,
                    help='processing end date (YYYY-MM-DD)')
-    p.add_argument('--study-name',
-                   help='study name')
     p.add_argument('--study-id',
                    help='study ID in MISO')
     p.add_argument('--spec-win', required=True,
@@ -697,9 +690,6 @@ if __name__ == '__main__':
                    help='output directory')
     args = p.parse_args()
 
-    if (args.study_name is None) and (args.study_id) is None:
-        raise ValueError('must specify --study-name or --study')
-
     os.makedirs(args.output_dir, exist_ok=True)
 
     print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
@@ -707,10 +697,9 @@ if __name__ == '__main__':
     spice_filenames = list_spice_files(
         args.start_date,
         args.end_date,
-        study_name=args.study_name,
-        study_id=args.study_id,
+        args.study_id,
         )
-    print(args.study_name, args.study_id, len(spice_filenames))
+    print(args.study_id, len(spice_filenames))
     print(args.spec_win)
     for fn in spice_filenames:
         print(fn)
