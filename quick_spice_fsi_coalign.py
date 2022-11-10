@@ -693,14 +693,15 @@ if __name__ == '__main__':
     os.makedirs(args.output_dir, exist_ok=True)
 
     print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
-    print('Listing SPICE files')
+    print('STUDY:', args.study_id)
+    print('Spectral window:', args.spec_win)
+    print('Listing files...', end=' ')
     spice_filenames = list_spice_files(
         args.start_date,
         args.end_date,
         args.study_id,
         )
-    print(args.study_id, len(spice_filenames))
-    print(args.spec_win)
+    print(len(spice_filenames), 'found')
     for fn in spice_filenames:
         print(fn)
 
@@ -708,6 +709,13 @@ if __name__ == '__main__':
         ssp = spice_stew.SpiceSpicePointing()
     n_tot = len(spice_filenames)
     for i, spice_file in enumerate(spice_filenames):
+
+        # Check if file exists
+        if os.path.isfile(os.path.join(args.output_dir, 'coalign_output',
+                          f'{os.path.splitext(spice_file)[0]}_coaligned.yml')):
+            print(f'\nSkipping {spice_file} (existing results found)')
+            continue
+
         spice_file = SpiceUtils.ias_fullpath(spice_file)
         print('\nProcessing', spice_file, f'{i}/{n_tot}')
 
