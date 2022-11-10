@@ -339,3 +339,7 @@ if __name__ == '__main__':
                       f'output/coalign_TxTy_sc_all_{T_key}.pdf',
                       fit_func=FitFunctions.Linear,
                       )
+
+    plot_pointing(dat_filtered, 'roll', 'Roll angle [°]',
+                  'output/coalign_TxTy_sc_all_CROTA.pdf',
+                  )
