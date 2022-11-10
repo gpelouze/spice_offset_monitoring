@@ -16,7 +16,7 @@ import scipy.interpolate as si
 import spiceypy.utils.exceptions
 import yaml
 
-from eui.euiprep import euiprep
+from euiprep.euiprep import euiprep
 from eui_selektor_client import EUISelektorClient
 from papy.sol.coord import diff_rot
 import align_images
