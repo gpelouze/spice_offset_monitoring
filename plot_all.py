@@ -284,6 +284,20 @@ class Filters:
         print(f'Discarded frames: {1 - m.mean():.1%}')
         return df[m]
 
+    @staticmethod
+    def limb(df):
+        m_cc = (df['max_cc'] > 0.2)
+        print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
+        m_dr = (df['dr'] < 40)
+        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_dsun = True
+        # m_dsun = (df['DSUN_AU'] > 0.5)
+        # m_dsun &= (df['DSUN_AU'] < 0.6)
+        # print(f'Frames with d_sun > 0.6: {1 - m_dsun.mean():.1%}')
+        m = m_cc & m_dr & m_dsun
+        print(f'Discarded frames: {1 - m.mean():.1%}')
+        return df[m]
+
 
 if __name__ == '__main__':
     dat = pd.concat([
@@ -294,6 +308,9 @@ if __name__ == '__main__':
         ])
     dat_filtered = Filters.center(dat)
     dat_filtered_disk = Filters.disk(dat)
+
+    # dat = get_data('Lyβ', 'output/LIMB')
+    # dat_filtered = Filters.limb(dat)
 
     plot_pointing(dat_filtered, 'date', 'Date',
                   'output/coalign_TxTy_sc_all.pdf', date=True)
