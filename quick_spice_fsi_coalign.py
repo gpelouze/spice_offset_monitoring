@@ -443,7 +443,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     phi = omega * Rsun / (Dsun - Rsun)  # rad s-1
     phi = np.rad2deg(phi) * 3600  # arcsec s-1
     # time between slit positions
-    t = fits.open(spice_file)[-1].data['TIMAQUTC']
+    t = fits.open(spice_file)['VARIABLE_KEYWORDS'].data['TIMAQUTC']
     t = np.array([parse_date(t) for t in np.squeeze(t)])
     dt = [dt.total_seconds() for dt in t[1:] - t[:-1]]  # s
     dt = - np.mean(dt)
