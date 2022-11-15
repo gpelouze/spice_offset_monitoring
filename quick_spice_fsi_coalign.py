@@ -4,6 +4,7 @@ import argparse
 import datetime
 import os
 import re
+import traceback
 
 from astropy import units as u
 from astropy import wcs
@@ -744,6 +745,8 @@ if __name__ == '__main__':
                     sum_wvl=True,
                     )
             except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
+                print('An error occurred while running spice_stew:')
+                print(traceback.format_exc())
                 continue
         else:
             print('Applying dummy SPICE kernel pointing correction')
