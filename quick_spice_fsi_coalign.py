@@ -353,6 +353,7 @@ def get_spice_image_data(filename, window):
     try:
         hdu = hdulist[window]
     except KeyError:
+        print(f"Window '{window}' not found in '{filename}'")
         return None
 
     img = np.squeeze(hdu.data)  # remove 1-length dimensions, ie t and wvl
