@@ -527,10 +527,19 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     w_common.wcs.cunit = ['arcsec', 'arcsec']
 
     # Pre-cut FSI
-    ixmin_fsi = np.where(Tx_fsi > Tx_common.min())[1].min() - 10
-    ixmax_fsi = np.where(Tx_fsi < Tx_common.max())[1].max() + 10
-    iymin_fsi = np.where(Ty_fsi > Ty_common.min())[0].min() - 10
-    iymax_fsi = np.where(Ty_fsi < Ty_common.max())[0].max() + 10
+    corners = [
+        [Tx_common.min(), Ty_common.min()],
+        [Tx_common.min(), Ty_common.max()],
+        [Tx_common.max(), Ty_common.max()],
+        [Tx_common.max(), Ty_common.min()],
+        ] * u.arcsec
+    corners_px = np.array(wcs_fsi.world_to_pixel(*corners.T)).T
+    ixmin_fsi, iymin_fsi = np.floor(corners_px.min(axis=0)).astype(int)
+    ixmax_fsi, iymax_fsi = np.ceil(corners_px.max(axis=0)).astype(int)
+    ixmin_fsi = np.clip(ixmin_fsi - 10, 0, None)
+    ixmax_fsi = np.clip(ixmax_fsi + 10, None, nx_fsi - 1)
+    iymin_fsi = np.clip(iymin_fsi - 10, 0, None)
+    iymin_fsi = np.clip(iymin_fsi + 10, None, ny_fsi - 1)
     fsi_img = fsi_img[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
     Tx_fsi = Tx_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
     Ty_fsi = Ty_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
