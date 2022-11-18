@@ -90,6 +90,8 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
         'Lyβ': 's',
         'Lyγ CIII': 'D',
         'CIII': '*',
+        'Lyγ CIII SYN': 's',
+        'Lyγ CIII RSW': 'D',
         }
     for _, r in df.iterrows():
         kw = dict(
@@ -301,10 +303,8 @@ class Filters:
 
 if __name__ == '__main__':
     dat = pd.concat([
-        # get_data('Cal. Lyβ', 'output/CAL_COALIGN_Lyb'),
-        get_data('Lyβ', 'output/SYN_Lyb'),
-        get_data('Lyγ CIII', 'output/SYN_Lyg_CIII'),
-        get_data('CIII', 'output/SYN_CIII'),
+        get_data('Lyγ CIII SYN', 'output/SYN_Lyg_CIII_new_syn'),
+        get_data('Lyγ CIII RSW', 'output/SYN_Lyg_CIII_new_rsw'),
         ])
     dat_filtered = Filters.center(dat)
     dat_filtered_disk = Filters.disk(dat)
