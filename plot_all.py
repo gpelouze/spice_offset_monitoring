@@ -47,7 +47,9 @@ def get_data(source_name, output_dir):
         with open(yml_fname, 'r') as f:
             res = yaml.safe_load(f)
         res['date'] = SpiceUtils.filename_to_date(f'{spice_fname}.fits')
-        res['plot'] = f'coalign_output/{spice_fname}_coaligned.pdf'
+        plot_dir = os.path.relpath(f'{output_dir}/coalign_output', 'output/')
+        res['plot_pdf'] = f'{plot_dir}/{spice_fname}_coaligned.pdf'
+        res['plot_jpg'] = f'{plot_dir}/{spice_fname}_coaligned.jpg'
         wcs = res.pop('wcs')
         res.update(wcs)
         header_data = get_header_data(os.path.join(
