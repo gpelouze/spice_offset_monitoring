@@ -92,8 +92,8 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
         'Lyβ': 's',
         'Lyγ CIII': 'D',
         'CIII': '*',
-        'Lyγ CIII SYN': 's',
-        'Lyγ CIII RSW': 'D',
+        'Synoptic': 's',
+        'RSW': 'D',
         }
     for _, r in df.iterrows():
         kw = dict(
@@ -147,7 +147,7 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
                 )
             handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
     legend_prop = dict(
-        ncol=3,
+        ncol=4,
         loc='lower right',
         bbox_to_anchor=(1, 1),
         fancybox=False,
@@ -166,7 +166,6 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
     ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
     # date
     if date:
-        ax.figure.autofmt_xdate()
         ax.xaxis.set_major_locator(mpl.dates.MonthLocator(bymonth=[1, 4, 7, 10]))
         ax.xaxis.set_minor_locator(mpl.dates.MonthLocator())
         ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%b %y"))
@@ -268,8 +267,8 @@ class Filters:
         print()
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
-        m_dr = (df['dr'] < 40)
-        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_dr = (df['dr'] < 30)
+        print(f'Frames with dr > 30: {1 - m_dr.mean():.1%}')
         m_R = (df['R_cen'] < 0.2)
         print(f'Frames with R_sun > 0.2: {1 - m_R.mean():.1%}')
         m = m_cc & m_dr & m_R
@@ -280,8 +279,8 @@ class Filters:
     def disk(df):
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
-        m_dr = (df['dr'] < 40)
-        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_dr = (df['dr'] < 30)
+        print(f'Frames with dr > 30: {1 - m_dr.mean():.1%}')
         m_dsun = (df['DSUN_AU'] < 0.6)
         print(f'Frames with d_sun > 0.6: {1 - m_dsun.mean():.1%}')
         m = m_cc & m_dr & m_dsun
@@ -292,8 +291,8 @@ class Filters:
     def limb(df):
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
-        m_dr = (df['dr'] < 40)
-        print(f'Frames with dr > 40: {1 - m_dr.mean():.1%}')
+        m_dr = (df['dr'] < 30)
+        print(f'Frames with dr > 30: {1 - m_dr.mean():.1%}')
         m_dsun = True
         # m_dsun = (df['DSUN_AU'] > 0.5)
         # m_dsun &= (df['DSUN_AU'] < 0.6)
@@ -305,14 +304,11 @@ class Filters:
 
 if __name__ == '__main__':
     dat = pd.concat([
-        get_data('Lyγ CIII SYN', 'output/SYN_Lyg_CIII_new_syn'),
-        get_data('Lyγ CIII RSW', 'output/SYN_Lyg_CIII_new_rsw'),
+        get_data('Synoptic', 'output/SYN_Lyg_CIII_new_syn'),
+        get_data('RSW', 'output/SYN_Lyg_CIII_new_rsw'),
         ])
     dat_filtered = Filters.center(dat)
     dat_filtered_disk = Filters.disk(dat)
-
-    # dat = get_data('Lyβ', 'output/LIMB')
-    # dat_filtered = Filters.limb(dat)
 
     plot_pointing(dat_filtered, 'date', 'Date',
                   'output/coalign_TxTy_sc_all.pdf', date=True)
