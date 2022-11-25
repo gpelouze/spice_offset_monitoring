@@ -329,6 +329,22 @@ class FitFunctions:
         def p0(self):
             return [np.mean(self.y)]
 
+    class RecommX(Linear):
+        def fit(self):
+            self.popt = [0.46, -85.0]
+            self.pcov = None
+
+        def label(self, *args, **kwargs):
+            return f'$\\Delta X = 0.46 T - 85.0$'
+
+    class RecommY(Constant):
+        def fit(self):
+            self.popt = [-72.4]
+            self.pcov = None
+
+        def label(self, *args, **kwargs):
+            return f'$\\Delta Y = - 72.4$'
+
     class InverseSq(_Base):
         def __call__(self, x, a, b):
             return a / x**2 + b
@@ -433,6 +449,13 @@ if __name__ == '__main__':
         plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
                       f'output/coalign_TxTy_sc_all_{T_key}.pdf',
                       )
+
+    plot_pointing(dat_filtered, 'T_GRAT', f'Grating temperature [°C]',
+                  f'output/coalign_TxTy_sc_all_RECOMM.pdf',
+                  fit_func=[FitFunctions.RecommX, FitFunctions.RecommY],
+                  filename_residuals=(
+                      f'output/coalign_TxTy_sc_all_RECOMM_residuals.pdf'),
+                  )
 
     plot_pointing(dat_filtered, 'roll', 'Roll angle [°]',
                   'output/coalign_TxTy_sc_all_CROTA.pdf',
