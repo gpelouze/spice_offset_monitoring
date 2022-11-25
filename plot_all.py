@@ -111,7 +111,10 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
         print('Fits for', x_label)
         fit_funcs = []
         for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
-            f = fit_func(x, y)
+            if hasattr(fit_func, '__iter__'):
+                f = fit_func[i](x, y)
+            else:
+                f = fit_func(x, y)
             f.fit()
             xy = {0: 'X', 1: 'Y'}[i]
             fit_label = f.label(f'\\Delta {xy}', 'z')
@@ -305,6 +308,27 @@ class FitFunctions:
         def p0(self):
             return [np.ptp(self.y), np.min(self.y)]
 
+    class Constant(_Base):
+        def __call__(self, x, b):
+            return np.full_like(x, b)
+
+        def label(self, y, x, error=True, R2=True, fmt='.2f'):
+            fmt = f'{{:{fmt}}}'
+            b, = self.popt
+            b = fmt.format(b)
+            if error:
+                berr, = self.perr()
+                berr = fmt.format(berr)
+                b = f'({b} ± {berr})'
+            if R2:
+                r2 = '{:.2f}'.format(self.r2())
+                return f'${y} = {b}$ [$R^2 = {r2}$]'
+            else:
+                return f'${y} = {b}$'
+
+        def p0(self):
+            return [np.mean(self.y)]
+
     class InverseSq(_Base):
         def __call__(self, x, a, b):
             return a / x**2 + b
@@ -381,7 +405,6 @@ if __name__ == '__main__':
                   'output/coalign_TxTy_sc_all.pdf', date=True)
     plot_pointing(dat_filtered, 'DSUN_AU', 'Solar distance [au]',
                   'output/coalign_TxTy_sc_all_dsun.pdf',
-                  fit_func=FitFunctions.InverseSq,
                   )
     plot_pointing(dat_filtered_disk, 'R_cen',
                   'Raster center [$R_\\odot$]',
@@ -399,10 +422,16 @@ if __name__ == '__main__':
                   'output/coalign_TxTy_sc_all_Rcen_y.pdf',
                   title='SPICE offset',
                   )
-    for T_key in ['T_GRAT', 'T_FOCUS', 'T_SW', 'T_LW']:
+    for T_key in ['T_GRAT', 'T_FOCUS']:
         plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
                       f'output/coalign_TxTy_sc_all_{T_key}.pdf',
-                      fit_func=FitFunctions.Linear,
+                      fit_func=[FitFunctions.Linear, FitFunctions.Constant],
+                      filename_residuals=(
+                          f'output/coalign_TxTy_sc_all_{T_key}_residuals.pdf'),
+                      )
+    for T_key in ['T_SW', 'T_LW']:
+        plot_pointing(dat_filtered, T_key, f'{T_key} [°C]',
+                      f'output/coalign_TxTy_sc_all_{T_key}.pdf',
                       )
 
     plot_pointing(dat_filtered, 'roll', 'Roll angle [°]',
