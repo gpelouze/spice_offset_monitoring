@@ -82,7 +82,8 @@ def get_data(source_name, output_dir):
 
 
 def plot_pointing(df, x_key, x_label, filename, date=False,
-                  title='SPICE offset', fit_func=None):
+                  title='SPICE offset',
+                  fit_func=None, filename_residuals=None):
     plt.clf()
     ax = plt.gca()
     ax.set_title(title, loc='left')
@@ -108,6 +109,7 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
     if fit_func is not None:
         x = df[x_key]
         print('Fits for', x_label)
+        fit_funcs = []
         for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
             f = fit_func(x, y)
             f.fit()
@@ -119,6 +121,7 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
                 label=fit_label,
                 )
             print(fit_label)
+            fit_funcs.append(f)
         plt.gca().add_artist(plt.legend(
             loc='best',
             fontsize=10,
@@ -171,6 +174,70 @@ def plot_pointing(df, x_key, x_label, filename, date=False,
         ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%b %y"))
     plt.tight_layout()
     plt.savefig(filename)
+
+    # plot residuals
+    if (fit_func is not None) and (filename_residuals is not None):
+        plt.clf()
+        ax = plt.gca()
+        ax.set_title('Residuals', loc='left')
+        ax.set_xlabel(x_label)
+        ax.set_ylabel('Offset [arcsec]')
+        # Points
+        for _, r in df.iterrows():
+            kw = dict(
+                ms=3,
+                fillstyle='none',
+                ls='',
+                marker=markers[r.data_source],
+                )
+            for i, y in enumerate([r['dx_sc'], r['dy_sc']]):
+                x = r[x_key]
+                f = fit_funcs[i]
+                res = y - f(x, *f.popt)
+                ax.plot(x, res, color=f'C{i}', **kw)
+        # Intervals
+        for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
+            x = df[x_key]
+            f = fit_funcs[i]
+            res = y - f(x, *f.popt)
+            xlim = ax.get_xlim()
+            m = np.mean(res)
+            fwhm = np.sqrt(8*np.log(2)) * np.std(res)
+            xy = {0: 'X', 1: 'Y'}[i]
+            label = f'${xy}$: {fwhm:.1f}″'
+            x_ = np.array(xlim)
+            m = np.array([m] * 2)
+            fwhm = np.array([fwhm] * 2)
+            ax.fill_between(
+                x_, m+fwhm/2, m-fwhm/2,
+                color=f'C{i}', alpha=0.2, ec=None,
+                label=label,
+                )
+            print('Residuals', label)
+            ax.set_xlim(*xlim)
+        spice_psf_fwhm = 8
+        ax.axhline(
+            spice_psf_fwhm / 2,
+            color=f'k', ls='--', lw=1,
+            label=f'SPICE PSF: {spice_psf_fwhm}″',
+            )
+        ax.axhline(
+            -spice_psf_fwhm / 2,
+            color=f'k', ls='--', lw=1,
+            )
+        ax.legend(
+            title='FWHMs:', title_fontsize=10, alignment='left',
+            loc='lower right', bbox_to_anchor=(1, 1),
+            ncol=3,
+            fancybox=False,
+            fontsize=10,
+            )
+        ax.set_ylim(-20, +20)
+        # remove axes frame
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.tight_layout()
+        plt.savefig(filename_residuals)
 
 
 class FitFunctions:
