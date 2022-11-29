@@ -26,7 +26,7 @@ import common
 
 
 def list_spice_files(start_date, end_date, study_id):
-    ''' Get list of SPICE files
+    """ Get list of SPICE files
 
     Parameters
     ==========
@@ -41,7 +41,7 @@ def list_spice_files(start_date, end_date, study_id):
     =======
     filenames : list of str
         List of FITS
-    '''
+    """
     if type(study_id) is not str:
         raise ValueError(f'study_id must be str (got {type(study_id)})')
 
@@ -57,7 +57,7 @@ def list_spice_files(start_date, end_date, study_id):
 
 
 def get_closest_fsi_L1_file_from_selektor(search_date, band, max_t_dist):
-    ''' Get FSI L1 file closest to a given date
+    """ Get FSI L1 file closest to a given date
 
     Parameters
     ==========
@@ -73,7 +73,7 @@ def get_closest_fsi_L1_file_from_selektor(search_date, band, max_t_dist):
     =======
     filename : str or None
         Closest FSI FITS, if there is one.
-    '''
+    """
     search_date_min = search_date - max_t_dist
     search_date_max = search_date + max_t_dist
 
@@ -137,7 +137,7 @@ def get_closest_fsi_L1_file_from_selektor(search_date, band, max_t_dist):
 
 
 def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
-    ''' Get FSI L1 file to coalign with a SPICE file
+    """ Get FSI L1 file to coalign with a SPICE file
 
     Parameters
     ==========
@@ -155,7 +155,7 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
     =======
     fsi_file : dict or None
         Dictionary containing info about the closest FSI file, if there is one.
-    '''
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     spice_file_base = os.path.splitext(os.path.basename(spice_file))[0]
@@ -193,8 +193,10 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
     return fsi_file_L2
 
 
-def dummy_stew(filename, output_dir, sum_wvl=False,
-               windows=None, overwrite=False):
+def dummy_stew(
+        filename, output_dir, sum_wvl=False,
+        windows=None, overwrite=False
+        ):
     os.makedirs(output_dir, exist_ok=True)
     # filename operations
     basename = os.path.splitext(os.path.basename(filename))[0]
@@ -217,7 +219,7 @@ def dummy_stew(filename, output_dir, sum_wvl=False,
             cube = np.squeeze(hdu.data)  # remove t axis
             spectral_window = np.any(np.isnan(cube), axis=2)
             iymin, iymax = common.SpiceUtils.vertical_edges_limits(hdu.header)
-            spectral_window = spectral_window[:, iymin:iymax+1]
+            spectral_window = spectral_window[:, iymin:iymax + 1]
             valid_columns = ~np.any(spectral_window, axis=1)
             cube = cube[valid_columns]  # columns with no NaNs
             img = np.nansum(cube, axis=0)  # Sum over wavelengths
@@ -234,14 +236,14 @@ def dummy_stew(filename, output_dir, sum_wvl=False,
 
 
 def get_spice_image_data(filename, window):
-    ''' Return SPICE image data
+    """ Return SPICE image data
 
     Parameters
     ==========
     filename : str
         Path to a FITS file containing SPICE intensity maps coaligned with
         spice_stew.
-    spice_window : str
+    window : str
         SPICE window name
 
     Returns
@@ -250,7 +252,7 @@ def get_spice_image_data(filename, window):
         Image data
     header : astropy.io.fits.Header
         FITS header
-    '''
+    """
     hdulist = fits.open(filename)
     try:
         hdu = hdulist[window]
@@ -267,7 +269,7 @@ def get_spice_image_data(filename, window):
 
 
 def get_fsi_image_data(filename):
-    ''' Return FSI imge data
+    """ Return FSI imge data
 
     Parameters
     ==========
@@ -280,14 +282,14 @@ def get_fsi_image_data(filename):
         Image data
     header : astropy.io.fits.Header
         FITS header
-    '''
+    """
     hdulist = fits.open(filename)
     hdu = hdulist[-1]
     return hdu.data, hdu.header
 
 
 def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
-    ''' Generate SPICE and FSI images that can be coaligned together
+    """ Generate SPICE and FSI images that can be coaligned together
 
     Parameters
     ==========
@@ -296,15 +298,17 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
         spice_stew.
     spice_window : str
         SPICE window name
-    filename : dict
-        Path to FSI file FITS.
+    fsi_file : dict
+        FSI FITS info.
+    output_dir : str
+        Output directory
 
     Returns
     =======
-    spice_img : str
+    spice_img : str,
     fsi_img : str
         Path to FITS images to coalign
-    '''
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     basename = os.path.basename(spice_file).rstrip('_remapped_img.fits')
@@ -329,7 +333,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
     iymin, iymax = common.SpiceUtils.vertical_edges_limits(spice_header)
-    spice_img = spice_img[iymin:iymax+1]
+    spice_img = spice_img[iymin:iymax + 1]
 
     # Correct solar rotation in SPICE header
     # rotation rate (on solar sphere)
@@ -358,7 +362,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     # px coordinates of SPICE cut zone
     ny_spice, nx_spice = spice_img.shape
     x_spice = np.arange(0, nx_spice)
-    y_spice = np.arange(iymin, iymax+1)
+    y_spice = np.arange(iymin, iymax + 1)
     w_spice = np.array([0])
     t_spice = np.array([1])
     assert y_spice.size <= ny_spice
@@ -368,15 +372,16 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     world_spice = wcs_spice.wcs_pix2world(px_spice.reshape(-1, 4), 0)
     world_spice = world_spice.reshape((y_spice.size, x_spice.size, 1, 1, 4))
     assert px_spice.shape == world_spice.shape
-    Tx_spice = u.Quantity(world_spice[:, :, 0, 0, 0], wcs_spice.world_axis_units[0])
-    Ty_spice = u.Quantity(world_spice[:, :, 0, 0, 1], wcs_spice.world_axis_units[1])
-    # put angles between ]-180, +180] deg
-    pi = u.Quantity(180, 'deg')
-    Tx_spice = - ((- Tx_spice + pi) % (2*pi) - pi)
-    Ty_spice = - ((- Ty_spice + pi) % (2*pi) - pi)
-    # convert to arcsec
-    Tx_spice = Tx_spice.to('arcsec').value
-    Ty_spice = Ty_spice.to('arcsec').value
+    Tx_spice = u.Quantity(
+        world_spice[:, :, 0, 0, 0],
+        wcs_spice.world_axis_units[0]
+        )
+    Ty_spice = u.Quantity(
+        world_spice[:, :, 0, 0, 1],
+        wcs_spice.world_axis_units[1]
+        )
+    Tx_spice = common.ang2pipi(Tx_spice).to('arcsec').value
+    Ty_spice = common.ang2pipi(Ty_spice).to('arcsec').value
 
     # FSI WCS
     wcs_fsi = wcs.WCS(fsi_header)
@@ -392,13 +397,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     assert px_fsi.shape == world_fsi.shape
     Tx_fsi = u.Quantity(world_fsi[:, :, 0], wcs_fsi.world_axis_units[0])
     Ty_fsi = u.Quantity(world_fsi[:, :, 1], wcs_fsi.world_axis_units[1])
-    # put angles between ]-180, +180] deg
-    pi = u.Quantity(180, 'deg')
-    Tx_fsi = - ((- Tx_fsi + pi) % (2*pi) - pi)
-    Ty_fsi = - ((- Ty_fsi + pi) % (2*pi) - pi)
-    # convert to arcsec
-    Tx_fsi = Tx_fsi.to('arcsec').value
-    Ty_fsi = Ty_fsi.to('arcsec').value
+    Tx_fsi = common.ang2pipi(Tx_fsi).to('arcsec').value
+    Ty_fsi = common.ang2pipi(Ty_fsi).to('arcsec').value
 
     # Generate common coordinates
     common_Txy_size = 4  # arcsec
@@ -418,7 +418,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     # Common WCS
     w_common = wcs.WCS(naxis=2)
     w_common.wcs.cdelt = [common_Txy_size, common_Txy_size]
-    w_common.wcs.crpix = [Tx_common_1d.size//2, Ty_common_1d.size//2]
+    w_common.wcs.crpix = [Tx_common_1d.size // 2, Ty_common_1d.size // 2]
     w_common.wcs.crval = [Tx_common_1d[int(w_common.wcs.crpix[0])],
                           Ty_common_1d[int(w_common.wcs.crpix[1])]]
     w_common.wcs.ctype = ['HPLN-TAN', 'HPLT-TAN']
@@ -426,11 +426,11 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
 
     # Pre-cut FSI
     corners = [
-        [Tx_common.min(), Ty_common.min()],
-        [Tx_common.min(), Ty_common.max()],
-        [Tx_common.max(), Ty_common.max()],
-        [Tx_common.max(), Ty_common.min()],
-        ] * u.arcsec
+                  [Tx_common.min(), Ty_common.min()],
+                  [Tx_common.min(), Ty_common.max()],
+                  [Tx_common.max(), Ty_common.max()],
+                  [Tx_common.max(), Ty_common.min()],
+                  ] * u.arcsec
     corners_px = np.array(wcs_fsi.world_to_pixel(*corners.T)).T
     ixmin_fsi, iymin_fsi = np.floor(corners_px.min(axis=0)).astype(int)
     ixmax_fsi, iymax_fsi = np.ceil(corners_px.max(axis=0)).astype(int)
@@ -438,9 +438,9 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     ixmax_fsi = np.clip(ixmax_fsi + 10, None, nx_fsi - 1)
     iymin_fsi = np.clip(iymin_fsi - 10, 0, None)
     iymin_fsi = np.clip(iymin_fsi + 10, None, ny_fsi - 1)
-    fsi_img = fsi_img[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
-    Tx_fsi = Tx_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
-    Ty_fsi = Ty_fsi[iymin_fsi:iymax_fsi+1, ixmin_fsi:ixmax_fsi+1]
+    fsi_img = fsi_img[iymin_fsi:iymax_fsi + 1, ixmin_fsi:ixmax_fsi + 1]
+    Tx_fsi = Tx_fsi[iymin_fsi:iymax_fsi + 1, ixmin_fsi:ixmax_fsi + 1]
+    Ty_fsi = Ty_fsi[iymin_fsi:iymax_fsi + 1, ixmin_fsi:ixmax_fsi + 1]
 
     # Remap
     def remap(Tx, Ty, img, new_Tx, new_Ty):
@@ -450,6 +450,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
         new_values = si.griddata(points, values, new_points)
         new_values = new_values.reshape(new_Tx.shape)
         return new_values
+
     new_spice_img = remap(Tx_spice, Ty_spice, spice_img, Tx_common, Ty_common)
     new_fsi_img = remap(Tx_fsi, Ty_fsi, fsi_img, Tx_common, Ty_common)
 
@@ -471,24 +472,26 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
     Tx, _ = wcs_common.pixel_to_world(np.arange(nx), [0])
     _, Ty = wcs_common.pixel_to_world([0], np.arange(ny))
     pi = u.Quantity(np.pi, 'rad')
-    Tx = (Tx + pi) % (2*pi) - pi
-    Ty = (Ty + pi) % (2*pi) - pi
+    Tx = (Tx + pi) % (2 * pi) - pi
+    Ty = (Ty + pi) % (2 * pi) - pi
     Tx = Tx.to('arcsec').value
     Ty = Ty.to('arcsec').value
 
     plt.clf()
+
     def nanptp(a):
         return np.nanmax(a) - np.nanmin(a)
-    fsi_img = fsi_img - np.nanmin(fsi_img) + 0.01*nanptp(fsi_img)
-    spice_img = spice_img - np.nanmin(spice_img) + 0.01*nanptp(spice_img)
+
+    fsi_img = fsi_img - np.nanmin(fsi_img) + 0.01 * nanptp(fsi_img)
+    spice_img = spice_img - np.nanmin(spice_img) + 0.01 * nanptp(spice_img)
     fsi_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.nanpercentile(fsi_img, 0),
-            vmax=np.nanpercentile(fsi_img, 99.9),
-            )
+        vmin=np.nanpercentile(fsi_img, 0),
+        vmax=np.nanpercentile(fsi_img, 99.9),
+        )
     spice_norm = plt.matplotlib.colors.LogNorm(
-            vmin=np.nanpercentile(spice_img, 0),
-            vmax=np.nanpercentile(spice_img, 99.9),
-            )
+        vmin=np.nanpercentile(spice_img, 0),
+        vmax=np.nanpercentile(spice_img, 99.9),
+        )
     ax1 = plt.subplot(121)
     papy.plot.plot_map(
         plt.gca(),
@@ -530,7 +533,7 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
 
 
 def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
-    ''' Coalign SPICE and FSI images
+    """ Coalign SPICE and FSI images
 
     Parameters
     ==========
@@ -541,7 +544,7 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
         Output directory
     roll : float or None (default: None)
         roll in degrees, to save with yml file
-    '''
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     basename = os.path.basename(spice_img)
@@ -564,10 +567,12 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
         missing=np.nan,
         )
     shifts = shifts[::-1]  # y, x to x, y
-    aligned_cube = np.squeeze(align_images.align.align_cube(
-        cube,
-        np.stack([shifts, [0, 0]]),
-        ))
+    aligned_cube = np.squeeze(
+        align_images.align.align_cube(
+            cube,
+            np.stack([shifts, [0, 0]]),
+            )
+        )
     plot_images(aligned_cube[0], aligned_cube[1], w, plot_filename)
 
     res = dict(
@@ -581,8 +586,10 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
         yaml.safe_dump(res, f, sort_keys=False)
 
 
-def process_all(start_date, end_date, study_id, spec_win,
-                output_dir='./output', no_stew=False):
+def process_all(
+        start_date, end_date, study_id, spec_win,
+        output_dir='./output', no_stew=False
+        ):
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -605,8 +612,12 @@ def process_all(start_date, end_date, study_id, spec_win,
     for i, spice_file in enumerate(spice_filenames):
 
         # Check if file exists
-        if os.path.isfile(os.path.join(output_dir, 'coalign_output',
-                                       f'{os.path.splitext(spice_file)[0]}_coaligned.yml')):
+        if os.path.isfile(
+                os.path.join(
+                    output_dir, 'coalign_output',
+                    f'{os.path.splitext(spice_file)[0]}_coaligned.yml'
+                    )
+                ):
             print(f'\nSkipping {spice_file} (existing results found)')
             continue
 
@@ -681,20 +692,33 @@ def process_all(start_date, end_date, study_id, spec_win,
             roll=roll,
             )
 
+
 def cli():
     p = argparse.ArgumentParser()
-    p.add_argument('--start-date', required=True,
-                   help='processing start date (YYYY-MM-DD)')
-    p.add_argument('--end-date', required=True,
-                   help='processing end date (YYYY-MM-DD)')
-    p.add_argument('--study-id',
-                   help='study ID in MISO')
-    p.add_argument('--spec-win', required=True,
-                   help='spectral window')
-    p.add_argument('--no-stew', action='store_true',
-                   help='skip jitter correction using spice_stew')
-    p.add_argument('--output-dir', default='./output',
-                   help='output directory')
+    p.add_argument(
+        '--start-date', required=True,
+        help='processing start date (YYYY-MM-DD)'
+        )
+    p.add_argument(
+        '--end-date', required=True,
+        help='processing end date (YYYY-MM-DD)'
+        )
+    p.add_argument(
+        '--study-id',
+        help='study ID in MISO'
+        )
+    p.add_argument(
+        '--spec-win', required=True,
+        help='spectral window'
+        )
+    p.add_argument(
+        '--no-stew', action='store_true',
+        help='skip jitter correction using spice_stew'
+        )
+    p.add_argument(
+        '--output-dir', default='./output',
+        help='output directory'
+        )
     args = p.parse_args()
 
     process_all(
@@ -705,6 +729,7 @@ def cli():
         output_dir=args.output_dir,
         no_stew=args.no_stew,
         )
+
 
 if __name__ == '__main__':
     cli()

@@ -2,6 +2,7 @@ import os
 import re
 
 from dateutil.parser import parse as parse_date
+import astropy.units as u
 import numpy as np
 import pandas as pd
 
@@ -117,3 +118,9 @@ class EuiUtils:
         base = os.path.basename(fsi_file_L1)
         base = base.replace('L1', 'L2')
         return os.path.join(output_dir, base)
+
+
+def ang2pipi(ang):
+    """ put angle between ]-180, +180] deg """
+    pi = u.Quantity(180, 'deg')
+    return - ((- ang + pi) % (2*pi) - pi)
