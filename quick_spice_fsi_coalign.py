@@ -116,6 +116,13 @@ class SpiceUtils:
         slit_end = int(np.floor(slit_end))
         return slit_beg, slit_end
 
+    @staticmethod
+    def vertical_edges_limits(header):
+        iymin, iymax = SpiceUtils.slit_px(header)
+        iymin += int(20 / header['NBIN2'])
+        iymax -= int(20 / header['NBIN2'])
+        return iymin, iymax
+
 
 class EuiUtils:
     @staticmethod
@@ -426,12 +433,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     spice_img, spice_header = spice_img_data
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
-    # Cut spice image
-    iymin, iymax = SpiceUtils.slit_px(spice_header)
-    iymin += int(20 / spice_header['NBIN2'])
-    iymax -= int(20 / spice_header['NBIN2'])
-    iymax += 1
-    spice_img = spice_img[iymin:iymax]
+    iymin, iymax = SpiceUtils.vertical_edges_limits(spice_header)
+    spice_img = spice_img[iymin:iymax+1]
 
     # Correct solar rotation in SPICE header
     # rotation rate (on solar sphere)
@@ -460,7 +463,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     # px coordinates of SPICE cut zone
     ny_spice, nx_spice = spice_img.shape
     x_spice = np.arange(0, nx_spice)
-    y_spice = np.arange(iymin, iymax)
+    y_spice = np.arange(iymin, iymax+1)
     w_spice = np.array([0])
     t_spice = np.array([1])
     assert y_spice.size <= ny_spice
