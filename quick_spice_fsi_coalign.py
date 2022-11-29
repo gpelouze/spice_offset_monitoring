@@ -3,7 +3,6 @@
 import argparse
 import datetime
 import os
-import re
 import traceback
 
 from astropy import units as u
@@ -12,7 +11,6 @@ from astropy.io import fits
 from dateutil.parser import parse as parse_date
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import scipy.interpolate as si
 import spiceypy.utils.exceptions
 import yaml
@@ -24,118 +22,7 @@ import align_images
 import papy.plot
 import spice_stew
 
-
-class SpiceUtils:
-    re_spice_L123_filename = re.compile('''
-        solo
-        _(?P<level>L[123])
-        _spice
-            (?P<concat>-concat)?
-            -(?P<slit>[wn])
-            -(?P<type>(?:ras|sit|exp))
-            (?P<db>-db)?
-            (?P<int>-int)?
-        _(?P<time>\d{8}T\d{6})
-        _(?P<version>V\d{2})
-        _(?P<SPIOBSID>\d+)-(?P<RASTERNO>\d+)
-        \.fits
-        ''',
-        re.VERBOSE)
-
-    @staticmethod
-    def read_spice_uio_catalog():
-        """
-        Read UiO text table SPICE FITS files catalog
-        http://astro-sdc-db.uio.no/vol/spice/fits/spice_catalog.txt
-
-        Return
-        ------
-        pandas.DataFrame
-            Table
-
-        Example queries that can be done on the result:
-
-        * `df[(df.LEVEL == "L2") & (df["DATE-BEG"] >= "2020-11-17") & (df["DATE-BEG"] < "2020-11-18") & (df.XPOSURE > 60.)]`
-        * `df[(df.LEVEL == "L2") & (df.STUDYDES == "Standard dark for cruise phase")]`
-
-        Source: https://spice-wiki.ias.u-psud.fr/doku.php/data:data_analysis_manual:read_catalog_python
-        """
-        cat_file = os.path.join(
-            os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
-            'SPICE/fits/spice_catalog.txt')
-        columns = list(pd.read_csv(cat_file, nrows=0).keys())
-        date_columns = ['DATE-BEG','DATE', 'TIMAQUTC']
-        df = pd.read_table(cat_file, skiprows=1, names=columns, na_values="MISSING",
-                        parse_dates=date_columns, low_memory=False)
-        df.LEVEL = df.LEVEL.apply(lambda string: string.strip())
-        df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
-        return df
-
-    @staticmethod
-    def parse_filename(filename):
-        m = SpiceUtils.re_spice_L123_filename.match(filename)
-        if m is None:
-            raise ValueError(f'could not parse SPICE filename: {filename}')
-        return m.groupdict()
-
-    @staticmethod
-    def filename_to_date(filename):
-        d = SpiceUtils.parse_filename(filename)
-        return parse_date(d['time'])
-
-    @staticmethod
-    def ias_fullpath(filename):
-        d = SpiceUtils.parse_filename(filename)
-        date = parse_date(d['time'])
-
-        fullpath = os.path.join(
-            os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
-            'SPICE/fits/',
-            'level' + d['level'].lstrip('L'),
-            f'{date.year:04d}/{date.month:02d}/{date.day:02d}',
-            filename)
-
-        return fullpath
-
-    @staticmethod
-    def slit_px(header):
-        ''' Compute the first and last pixel of the slit from a FITS header '''
-        ybin = header['NBIN2']
-        h_detector = 1024 / ybin
-        if header['DETECTOR'] == 'SW':
-            h_slit = 600 / ybin
-        elif header['DETECTOR'] == 'LW':
-            h_slit = 626 / ybin
-        else:
-            raise ValueError(f"unknown detector: {header['DETECTOR']}")
-        slit_beg = (h_detector - h_slit) / 2
-        slit_end = h_detector - slit_beg
-        slit_beg = slit_beg - header['PXBEG2'] / ybin + 1
-        slit_end = slit_end - header['PXBEG2'] / ybin + 1
-        slit_beg = int(np.ceil(slit_beg))
-        slit_end = int(np.floor(slit_end))
-        return slit_beg, slit_end
-
-    @staticmethod
-    def vertical_edges_limits(header):
-        iymin, iymax = SpiceUtils.slit_px(header)
-        iymin += int(20 / header['NBIN2'])
-        iymax -= int(20 / header['NBIN2'])
-        return iymin, iymax
-
-
-class EuiUtils:
-    @staticmethod
-    def ias_fullpath(rob_fullpath):
-        p = rob_fullpath.lstrip('/data/solo-eui/internal/')
-        p = '/archive/SOLAR-ORBITER/EUI/data_internal/' + p
-        return p
-
-    @staticmethod
-    def local_L2_path(output_dir, fsi_file_L1):
-        base = os.path.basename(fsi_file_L1)
-        base = base.replace('L1', 'L2')
-        return os.path.join(output_dir, base)
+import common
 
 
 def list_spice_files(start_date, end_date, study_id):
@@ -158,7 +45,7 @@ def list_spice_files(start_date, end_date, study_id):
     if type(study_id) is not str:
         raise ValueError(f'study_id must be str (got {type(study_id)})')
 
-    cat = SpiceUtils.read_spice_uio_catalog()
+    cat = common.SpiceUtils.read_spice_uio_catalog()
     filters = (
         (cat['DATE-BEG'] > start_date)
         & (cat['DATE-BEG'] <= end_date)
@@ -293,7 +180,7 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
 
 
 def gen_fsi_L2(fsi_file_L1, output_dir):
-    fsi_file_L2 = EuiUtils.local_L2_path(output_dir, fsi_file_L1)
+    fsi_file_L2 = common.EuiUtils.local_L2_path(output_dir, fsi_file_L1)
     if os.path.isfile(fsi_file_L2):
         print(f'FSI L2 file exists: {fsi_file_L2}, exiting')
     else:
@@ -329,7 +216,7 @@ def dummy_stew(filename, output_dir, sum_wvl=False,
         if sum_wvl:
             cube = np.squeeze(hdu.data)  # remove t axis
             spectral_window = np.any(np.isnan(cube), axis=2)
-            iymin, iymax = SpiceUtils.vertical_edges_limits(hdu.header)
+            iymin, iymax = common.SpiceUtils.vertical_edges_limits(hdu.header)
             spectral_window = spectral_window[:, iymin:iymax+1]
             valid_columns = ~np.any(spectral_window, axis=1)
             cube = cube[valid_columns]  # columns with no NaNs
@@ -344,7 +231,6 @@ def dummy_stew(filename, output_dir, sum_wvl=False,
     hdulist.writeto(output_fits, overwrite=overwrite)
 
     return output_fits
-
 
 
 def get_spice_image_data(filename, window):
@@ -442,7 +328,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     spice_img, spice_header = spice_img_data
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
-    iymin, iymax = SpiceUtils.vertical_edges_limits(spice_header)
+    iymin, iymax = common.SpiceUtils.vertical_edges_limits(spice_header)
     spice_img = spice_img[iymin:iymax+1]
 
     # Correct solar rotation in SPICE header
@@ -695,9 +581,107 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
         yaml.safe_dump(res, f, sort_keys=False)
 
 
+def process_all(start_date, end_date, study_id, spec_win,
+                output_dir='./output', no_stew=False):
 
-if __name__ == '__main__':
+    os.makedirs(output_dir, exist_ok=True)
 
+    print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+    print('STUDY:', study_id)
+    print('Spectral window:', spec_win)
+    print('Listing files...', end=' ')
+    spice_filenames = list_spice_files(
+        start_date,
+        end_date,
+        study_id,
+        )
+    print(len(spice_filenames), 'found')
+    for fn in spice_filenames:
+        print(fn)
+
+    if not no_stew:
+        ssp = spice_stew.SpiceSpicePointing()
+    n_tot = len(spice_filenames)
+    for i, spice_file in enumerate(spice_filenames):
+
+        # Check if file exists
+        if os.path.isfile(os.path.join(output_dir, 'coalign_output',
+                                       f'{os.path.splitext(spice_file)[0]}_coaligned.yml')):
+            print(f'\nSkipping {spice_file} (existing results found)')
+            continue
+
+        spice_file = common.SpiceUtils.ias_fullpath(spice_file)
+        print('\nProcessing', spice_file, f'{i}/{n_tot}')
+
+        print('Getting closest FSI image')
+        fsi_file_L1 = get_fsi_L1(
+            spice_file,
+            '304',
+            f'{output_dir}/fsi_data',
+            max_t_dist=3,
+            )
+        if fsi_file_L1 is None:
+            print(f'No FSI image found for {spice_file}, skipping')
+            continue
+        fsi_file_L1 = common.EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
+        print(fsi_file_L1)
+
+        if not no_stew:
+            print('Correcting pointing with SPICE kernels')
+            try:
+                spice_file_aligned = spice_stew.correct_spice_pointing(
+                    ssp,
+                    spice_file,
+                    f'{output_dir}/spice_stew',
+                    overwrite=False,
+                    plot_results=True,
+                    sum_wvl=True,
+                    windows=[spec_win],
+                    )
+            except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
+                print('An error occurred while running spice_stew:')
+                print(traceback.format_exc())
+                continue
+        else:
+            print('Applying dummy SPICE kernel pointing correction')
+            spice_file_aligned = dummy_stew(
+                spice_file,
+                f'{output_dir}/spice_stew_dummy',
+                sum_wvl=True,
+                overwrite=True,
+                windows=[spec_win],
+                )
+        with fits.open(spice_file) as hdul:
+            roll = hdul[0].header['CROTA']
+
+        print('Generating L2 FSI image')
+        try:
+            fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{output_dir}/fsi_data')
+        except FileNotFoundError:
+            print(f'Could not open {fsi_file_L1}, skipping')
+            continue
+
+        print('Generating images to coalign')
+        img_to_coalign = gen_images_to_coalign(
+            spice_file_aligned,
+            spec_win,
+            fsi_file_L2,
+            f'{output_dir}/coalign_input',
+            )
+        if img_to_coalign is None:
+            print('Could not get images to coalign')
+            continue
+        spice_img, fsi_img = img_to_coalign
+
+        print('Coaligning images')
+        coalign_spice_fsi_images(
+            spice_img,
+            fsi_img,
+            f'{output_dir}/coalign_output',
+            roll=roll,
+            )
+
+def cli():
     p = argparse.ArgumentParser()
     p.add_argument('--start-date', required=True,
                    help='processing start date (YYYY-MM-DD)')
@@ -713,99 +697,14 @@ if __name__ == '__main__':
                    help='output directory')
     args = p.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
-    print('STUDY:', args.study_id)
-    print('Spectral window:', args.spec_win)
-    print('Listing files...', end=' ')
-    spice_filenames = list_spice_files(
+    process_all(
         args.start_date,
         args.end_date,
         args.study_id,
+        args.spec_win,
+        output_dir=args.output_dir,
+        no_stew=args.no_stew,
         )
-    print(len(spice_filenames), 'found')
-    for fn in spice_filenames:
-        print(fn)
 
-    if not args.no_stew:
-        ssp = spice_stew.SpiceSpicePointing()
-    n_tot = len(spice_filenames)
-    for i, spice_file in enumerate(spice_filenames):
-
-        # Check if file exists
-        if os.path.isfile(os.path.join(args.output_dir, 'coalign_output',
-                          f'{os.path.splitext(spice_file)[0]}_coaligned.yml')):
-            print(f'\nSkipping {spice_file} (existing results found)')
-            continue
-
-        spice_file = SpiceUtils.ias_fullpath(spice_file)
-        print('\nProcessing', spice_file, f'{i}/{n_tot}')
-
-        print('Getting closest FSI image')
-        fsi_file_L1 = get_fsi_L1(
-            spice_file,
-            '304',
-            f'{args.output_dir}/fsi_data',
-            max_t_dist=3,
-            )
-        if fsi_file_L1 is None:
-            print(f'No FSI image found for {spice_file}, skipping')
-            continue
-        fsi_file_L1 = EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
-        print(fsi_file_L1)
-
-        if not args.no_stew:
-            print('Correcting pointing with SPICE kernels')
-            try:
-                spice_file_aligned = spice_stew.correct_spice_pointing(
-                    ssp,
-                    spice_file,
-                    f'{args.output_dir}/spice_stew',
-                    overwrite=False,
-                    plot_results=True,
-                    sum_wvl=True,
-                    windows=[args.spec_win],
-                    )
-            except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
-                print('An error occurred while running spice_stew:')
-                print(traceback.format_exc())
-                continue
-        else:
-            print('Applying dummy SPICE kernel pointing correction')
-            spice_file_aligned = dummy_stew(
-                spice_file,
-                f'{args.output_dir}/spice_stew_dummy',
-                sum_wvl=True,
-                overwrite=True,
-                windows=[args.spec_win],
-                )
-        with fits.open(spice_file) as hdul:
-            roll = hdul[0].header['CROTA']
-
-        print('Generating L2 FSI image')
-        try:
-            fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{args.output_dir}/fsi_data')
-        except FileNotFoundError:
-            print(f'Could not open {fsi_file_L1}, skipping')
-            continue
-
-        print('Generating images to coalign')
-        img_to_coalign = gen_images_to_coalign(
-            spice_file_aligned,
-            args.spec_win,
-            fsi_file_L2,
-            f'{args.output_dir}/coalign_input',
-            )
-        if img_to_coalign is None:
-            print('Could not get images to coalign')
-            continue
-        spice_img, fsi_img = img_to_coalign
-
-        print('Coaligning images')
-        coalign_spice_fsi_images(
-            spice_img,
-            fsi_img,
-            f'{args.output_dir}/coalign_output',
-            roll=roll,
-            )
+if __name__ == '__main__':
+    cli()
