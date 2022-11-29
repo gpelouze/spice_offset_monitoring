@@ -306,7 +306,8 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
     return fsi_file_L2
 
 
-def dummy_stew(filename, output_dir, sum_wvl=False, overwrite=False):
+def dummy_stew(filename, output_dir, sum_wvl=False,
+               windows=None, overwrite=False):
     os.makedirs(output_dir, exist_ok=True)
     # filename operations
     basename = os.path.splitext(os.path.basename(filename))[0]
@@ -320,16 +321,19 @@ def dummy_stew(filename, output_dir, sum_wvl=False, overwrite=False):
         return output_fits
 
     hdulist = fits.open(filename)
-    for hdu in hdulist:
-        if hdu.is_image:
-            if sum_wvl:
-                img = np.nansum(hdu.data, axis=1)  # Sum over wavelengths
-                img = np.squeeze(img)  # Collapse 1-depth axis (t or X)
-                hdu.data = img
-            hdu.update_header()
-            hdu.header.add_history('dummy_stew')
-            hdu.add_datasum()
-            hdu.add_checksum()
+    if windows is None:
+        windows = [hdu.name for hdu in hdulist
+                   if hdu.is_image and (hdu.name != 'WCSDVARR')]
+    for win in windows:
+        hdu = hdulist[win]
+        if sum_wvl:
+            img = np.nansum(hdu.data, axis=1)  # Sum over wavelengths
+            img = np.squeeze(img)  # Collapse 1-depth axis (t or X)
+            hdu.data = img
+        hdu.update_header()
+        hdu.header.add_history('dummy_stew')
+        hdu.add_datasum()
+        hdu.add_checksum()
 
     # save data
     hdulist.writeto(output_fits, overwrite=overwrite)
@@ -756,6 +760,7 @@ if __name__ == '__main__':
                     overwrite=False,
                     plot_results=True,
                     sum_wvl=True,
+                    windows=[args.spec_win],
                     )
             except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
                 print('An error occurred while running spice_stew:')
@@ -768,6 +773,7 @@ if __name__ == '__main__':
                 f'{args.output_dir}/spice_stew_dummy',
                 sum_wvl=True,
                 overwrite=True,
+                windows=[args.spec_win],
                 )
         with fits.open(spice_file) as hdul:
             roll = hdul[0].header['CROTA']
