@@ -516,7 +516,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
 
     # Generate common coordinates
     common_Txy_size = 4  # arcsec
-    common_Txy_pad = 200  # arcsec
+    common_Txy_pad = 0  # arcsec
     Tx_common_1d = np.arange(
         Tx_spice.min() - common_Txy_pad,
         Tx_spice.max() + common_Txy_size + common_Txy_pad,
