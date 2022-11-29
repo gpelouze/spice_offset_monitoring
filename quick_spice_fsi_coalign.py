@@ -327,8 +327,13 @@ def dummy_stew(filename, output_dir, sum_wvl=False,
     for win in windows:
         hdu = hdulist[win]
         if sum_wvl:
-            img = np.nansum(hdu.data, axis=1)  # Sum over wavelengths
-            img = np.squeeze(img)  # Collapse 1-depth axis (t or X)
+            cube = np.squeeze(hdu.data)  # remove t axis
+            spectral_window = np.any(np.isnan(cube), axis=2)
+            iymin, iymax = SpiceUtils.vertical_edges_limits(hdu.header)
+            spectral_window = spectral_window[:, iymin:iymax+1]
+            valid_columns = ~np.any(spectral_window, axis=1)
+            cube = cube[valid_columns]  # columns with no NaNs
+            img = np.nansum(cube, axis=0)  # Sum over wavelengths
             hdu.data = img
         hdu.update_header()
         hdu.header.add_history('dummy_stew')
