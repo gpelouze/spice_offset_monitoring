@@ -210,27 +210,32 @@ def dummy_stew(
         return output_fits
 
     hdulist = fits.open(filename)
+    new_hdulist = fits.HDUList(hdus=[])
     if windows is None:
         windows = [hdu.name for hdu in hdulist
                    if hdu.is_image and (hdu.name != 'WCSDVARR')]
+    windows += [hdu.name for hdu in hdulist
+                if not hdu.is_image or (hdu.name == 'WCSDVARR')]
     for win in windows:
         hdu = hdulist[win]
-        if sum_wvl:
-            cube = np.squeeze(hdu.data)  # remove t axis
-            spectral_window = np.any(np.isnan(cube), axis=2)
-            iymin, iymax = common.SpiceUtils.vertical_edges_limits(hdu.header)
-            spectral_window = spectral_window[:, iymin:iymax + 1]
-            valid_columns = ~np.any(spectral_window, axis=1)
-            cube = cube[valid_columns]  # columns with no NaNs
-            img = np.nansum(cube, axis=0)  # Sum over wavelengths
-            hdu.data = img
-        hdu.update_header()
-        hdu.header.add_history('dummy_stew')
-        hdu.add_datasum()
-        hdu.add_checksum()
+        if hdu.is_image and (hdu.name != 'WCSDVARR'):
+            if sum_wvl:
+                cube = np.squeeze(hdu.data)  # remove t axis
+                spectral_window = np.any(np.isnan(cube), axis=2)
+                iymin, iymax = common.SpiceUtils.vertical_edges_limits(hdu.header)
+                spectral_window = spectral_window[:, iymin:iymax + 1]
+                valid_columns = ~np.any(spectral_window, axis=1)
+                cube = cube[valid_columns]  # columns with no NaNs
+                img = np.nansum(cube, axis=0)  # Sum over wavelengths
+                hdu.data = img
+            hdu.update_header()
+            hdu.header.add_history('dummy_stew')
+            hdu.add_datasum()
+            hdu.add_checksum()
+        new_hdulist.append(hdu)
 
     # save data
-    hdulist.writeto(output_fits, overwrite=overwrite)
+    new_hdulist.writeto(output_fits, overwrite=overwrite)
 
     return output_fits
 
