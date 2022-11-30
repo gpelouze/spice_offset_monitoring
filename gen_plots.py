@@ -71,8 +71,8 @@ def add_fit(ax, z, dx, dy, fit_func):
 def plot_dr_cc(df, df_filtered, filename):
     plt.clf()
     ax = plt.gca()
-    ax.plot(df['dr_sc'], df['max_cc'], 'o', color='gray', ms=3)
-    ax.plot(df_filtered['dr_sc'], df_filtered['max_cc'], 'ko', ms=3)
+    ax.plot(df['dr'], df['max_cc'], 'o', color='gray', ms=3)
+    ax.plot(df_filtered['dr'], df_filtered['max_cc'], 'ko', ms=3)
     ax.set_title('SPICE offset', loc='left')
     ax.set_xlabel('Absolute offset correction [arcsec]')
     ax.set_ylabel('Maximum cross-correlation')
