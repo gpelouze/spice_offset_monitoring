@@ -629,6 +629,12 @@ def process_time_span(
         spice_file = common.SpiceUtils.ias_fullpath(spice_file)
         print('\nProcessing', spice_file, f'{i}/{n_tot}')
 
+        # Skip incomplete files
+        with fits.open(spice_file) as hdul:
+            if hdul[0].header['COMPLETE'] != 'C':
+                print(f'Incomplete data in {spice_file}, skipping')
+                continue
+
         print('Getting closest FSI image')
         fsi_file_L1 = get_fsi_L1(
             spice_file,
