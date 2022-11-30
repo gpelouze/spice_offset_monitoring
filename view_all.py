@@ -5,7 +5,7 @@ import bokeh.plotting
 import bokeh.models
 import pandas as pd
 
-import plot_all
+import plot_utils
 
 TOOLTIPS_HTML = """
     <div>
@@ -27,10 +27,10 @@ TOOLTIPS_HTML = """
 if __name__ == '__main__':
 
     dat = pd.concat([
-        plot_all.get_data('Lyγ CIII SYN', 'output/SYN_Lyg_CIII_new_syn'),
-        plot_all.get_data('Lyγ CIII RSW', 'output/SYN_Lyg_CIII_new_rsw'),
+        plot_utils.get_data('Lyγ CIII SYN', 'output/SYN_Lyg_CIII_new_syn'),
+        plot_utils.get_data('Lyγ CIII RSW', 'output/SYN_Lyg_CIII_new_rsw'),
         ])
-    dat = plot_all.Filters.center(dat)
+    dat = plot_utils.Filters.center(dat)
     source = bk.models.ColumnDataSource(data=dat)
 
     hover_tool = bk.models.HoverTool(
