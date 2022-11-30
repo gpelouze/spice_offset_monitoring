@@ -68,6 +68,21 @@ def add_fit(ax, z, dx, dy, fit_func):
     return fit_funcs
 
 
+def plot_dr_cc(df, df_filtered, filename):
+    plt.clf()
+    ax = plt.gca()
+    ax.plot(df['dr_sc'], df['max_cc'], 'o', color='gray', ms=3)
+    ax.plot(df_filtered['dr_sc'], df_filtered['max_cc'], 'ko', ms=3)
+    ax.set_title('SPICE offset', loc='left')
+    ax.set_xlabel('Absolute offset correction [arcsec]')
+    ax.set_ylabel('Maximum cross-correlation')
+    ax.set_ylim(0, 1)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.tight_layout()
+    plt.savefig(filename)
+
+
 def plot_residuals(df, x_key, x_label, fit_funcs, filename=None):
     plt.clf()
     ax = plt.gca()
@@ -205,7 +220,8 @@ if __name__ == '__main__':
             ]
         )
     dat_filtered = plot_utils.Filters.center(dat)
-    dat_filtered_disk = plot_utils.Filters.disk(dat)
+
+    plot_dr_cc(dat, dat_filtered, f'output/coalign_cc_dr.pdf')
 
     plot_offsets(
         dat_filtered, 'date', 'Date',
@@ -216,24 +232,18 @@ if __name__ == '__main__':
         'output/coalign_TxTy_sc_all_dsun.pdf',
         )
     plot_offsets(
-        dat_filtered_disk, 'R_cen',
-        'Raster center [$R_\\odot$]',
-        'output/coalign_TxTy_sc_all_Rcen.pdf',
-        title='SPICE offset',
-        fit_func=plot_utils.FitFunctions.Linear,
+        dat_filtered, 'roll', 'Roll angle [°]',
+        'output/coalign_TxTy_sc_all_CROTA.pdf',
         )
-    plot_offsets(
-        dat_filtered_disk, 'R_cen_x',
-        'Raster center $x$ [$R_\\odot$]',
-        'output/coalign_TxTy_sc_all_Rcen_x.pdf',
-        title='SPICE offset',
-        )
-    plot_offsets(
-        dat_filtered_disk, 'R_cen_y',
-        'Raster center $y$ [$R_\\odot$]',
-        'output/coalign_TxTy_sc_all_Rcen_y.pdf',
-        title='SPICE offset',
-        )
+
+    # Detector temperature
+    for T_key in ['T_SW', 'T_LW']:
+        plot_offsets(
+            dat_filtered, T_key, f'{T_key} [°C]',
+            f'output/coalign_TxTy_sc_all_{T_key}.pdf',
+            )
+
+    # Fit on grating and focus mechanism temperatures
     for T_key in ['T_GRAT', 'T_FOCUS']:
         plot_offsets(
             dat_filtered, T_key, f'{T_key} [°C]',
@@ -243,12 +253,8 @@ if __name__ == '__main__':
             filename_residuals=(
                 f'output/coalign_TxTy_sc_all_{T_key}_residuals.pdf'),
             )
-    for T_key in ['T_SW', 'T_LW']:
-        plot_offsets(
-            dat_filtered, T_key, f'{T_key} [°C]',
-            f'output/coalign_TxTy_sc_all_{T_key}.pdf',
-            )
 
+    # Recommended correction
     plot_offsets(
         dat_filtered, 'T_GRAT', f'Grating temperature [°C]',
         f'output/coalign_TxTy_sc_all_RECOMM.pdf',
@@ -256,9 +262,4 @@ if __name__ == '__main__':
                   plot_utils.FitFunctions.RecommY],
         filename_residuals=(
             f'output/coalign_TxTy_sc_all_RECOMM_residuals.pdf'),
-        )
-
-    plot_offsets(
-        dat_filtered, 'roll', 'Roll angle [°]',
-        'output/coalign_TxTy_sc_all_CROTA.pdf',
         )
