@@ -5,6 +5,7 @@ import bokeh as bk
 import bokeh.plotting
 import bokeh.models
 import pandas as pd
+import pdf2image
 
 import common
 import plot_utils
@@ -34,6 +35,7 @@ class PointingResultsExplorer:
                          for time_span in conf['time_spans']])
         dat = plot_utils.Filters.center(dat)
         self.conf = conf
+        self.dat = dat
         self.source = bk.models.ColumnDataSource(data=dat)
 
     def gen_explorer(self):
@@ -74,6 +76,25 @@ class PointingResultsExplorer:
 
         bk.plotting.save(p)
 
+    def gen_jpg_previews(self):
+        for _, row in self.dat.iterrows():
+            plot_pdf = os.path.join(self.conf['plot']['dir'], row.plot_pdf)
+            plot_jpg = os.path.join(self.conf['plot']['dir'], row.plot_jpg)
+            output_folder, output_file = os.path.split(plot_jpg)
+            output_file, _ = os.path.splitext(output_file)
+            if os.path.isfile(plot_pdf) and not os.path.isfile(plot_jpg):
+                print(f'Generating {plot_jpg} from {plot_pdf}')
+                pdf2image.convert_from_path(
+                    plot_pdf,
+                    output_folder=output_folder,
+                    output_file=output_file,
+                    fmt='jpeg',
+                    single_file=True,
+                    paths_only=True,
+                    )
+
 
 if __name__ == '__main__':
-    PointingResultsExplorer(common.get_conf_from_cli()).gen_explorer()
+    e = PointingResultsExplorer(common.get_conf_from_cli())
+    e.gen_jpg_previews()
+    e.gen_explorer()
