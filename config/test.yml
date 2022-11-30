@@ -1,0 +1,16 @@
+processing:
+  no_stew: True
+
+plot:
+  dir: output/test/plot/
+
+
+time_spans:
+
+  - title: 'Synoptic'
+    dir: 'output/test/SYN_Lyg_CIII_new_syn/'
+    start_date: '2022-01-07'
+    end_date: '2022-01-15'
+    study_id: '1963'
+    spec_win: 'Ly-gamma-CIII group bin (1/4)'
+    plot_marker: 's'

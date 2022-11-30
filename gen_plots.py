@@ -1,20 +1,13 @@
 #!/usr/bin/env python
+import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+import common
 import plot_utils
-
-markers = {
-    'Cal. Lyβ': 'o',
-    'Lyβ': 's',
-    'Lyγ CIII': 'D',
-    'CIII': '*',
-    'Synoptic': 's',
-    'RSW': 'D',
-    }
 
 
 def get_legend_handles(df):
@@ -32,13 +25,18 @@ def get_legend_handles(df):
             marker=plot_utils.marker, mew=0, ms=12, ls=''
             ),
         ]
-    for name in dict.fromkeys(df.data_source):
-        kw = dict(
-            fillstyle='none',
-            ls='',
-            marker=markers[name],
-            )
-        handles.append(plt.Line2D([], [], label=name, color='gray', **kw))
+    # add unique combinations of data_source and marker to the legend
+    legend_elements = set([
+        tuple(v)
+        for v in df[['data_source', 'plot_marker']].values
+        ])
+    for label, marker in legend_elements:
+        handles.append(plt.Line2D(
+            [], [],
+            label=label,
+            color='gray',
+            marker=marker, fillstyle='none', ls='',
+            ))
     return handles
 
 
@@ -95,7 +93,7 @@ def plot_residuals(df, x_key, x_label, fit_funcs, filename=None):
             ms=3,
             fillstyle='none',
             ls='',
-            marker=markers[r.data_source],
+            marker=r.plot_marker,
             )
         for i, y in enumerate([r['dx_sc'], r['dy_sc']]):
             x = r[x_key]
@@ -161,7 +159,7 @@ def plot_offsets(
             ms=3,
             fillstyle='none',
             ls='',
-            marker=markers[r.data_source],
+            marker=r.plot_marker,
             )
         ax.plot(r[x_key], r['dx_sc'], color='C0', **kw)
         ax.plot(r[x_key], r['dy_sc'], color='C1', **kw)
@@ -212,54 +210,61 @@ def plot_offsets(
             )
 
 
-if __name__ == '__main__':
-    dat = pd.concat(
-        [
-            plot_utils.get_data('Synoptic', 'output/SYN_Lyg_CIII_new_syn'),
-            plot_utils.get_data('RSW', 'output/SYN_Lyg_CIII_new_rsw'),
-            ]
-        )
+def plot_all(conf):
+    dat = pd.concat([plot_utils.get_data(conf, time_span)
+                     for time_span in conf['time_spans']])
     dat_filtered = plot_utils.Filters.center(dat)
 
-    plot_dr_cc(dat, dat_filtered, f'output/coalign_cc_dr.pdf')
+    os.makedirs(conf['plot']['dir'], exist_ok=True)
+
+    plot_dr_cc(
+        dat, dat_filtered,
+        f"{conf['plot']['dir']}/coalign_cc_dr.pdf",
+        )
 
     plot_offsets(
         dat_filtered, 'date', 'Date',
-        'output/coalign_TxTy_sc_all.pdf', date=True
+        f"{conf['plot']['dir']}/coalign_TxTy_sc_all.pdf", date=True
         )
     plot_offsets(
         dat_filtered, 'DSUN_AU', 'Solar distance [au]',
-        'output/coalign_TxTy_sc_all_dsun.pdf',
+        f"{conf['plot']['dir']}/coalign_TxTy_sc_all_dsun.pdf",
         )
     plot_offsets(
         dat_filtered, 'roll', 'Roll angle [°]',
-        'output/coalign_TxTy_sc_all_CROTA.pdf',
+        f"{conf['plot']['dir']}/coalign_TxTy_sc_all_CROTA.pdf",
         )
 
     # Detector temperature
     for T_key in ['T_SW', 'T_LW']:
         plot_offsets(
             dat_filtered, T_key, f'{T_key} [°C]',
-            f'output/coalign_TxTy_sc_all_{T_key}.pdf',
+            f"{conf['plot']['dir']}/coalign_TxTy_sc_all_{T_key}.pdf",
             )
 
     # Fit on grating and focus mechanism temperatures
     for T_key in ['T_GRAT', 'T_FOCUS']:
         plot_offsets(
             dat_filtered, T_key, f'{T_key} [°C]',
-            f'output/coalign_TxTy_sc_all_{T_key}.pdf',
+            f"{conf['plot']['dir']}/coalign_TxTy_sc_all_{T_key}.pdf",
             fit_func=[plot_utils.FitFunctions.Linear,
                       plot_utils.FitFunctions.Constant],
             filename_residuals=(
-                f'output/coalign_TxTy_sc_all_{T_key}_residuals.pdf'),
+                f"{conf['plot']['dir']}/"
+                f"coalign_TxTy_sc_all_{T_key}_residuals.pdf"),
             )
 
     # Recommended correction
     plot_offsets(
         dat_filtered, 'T_GRAT', f'Grating temperature [°C]',
-        f'output/coalign_TxTy_sc_all_RECOMM.pdf',
+        f"{conf['plot']['dir']}/coalign_TxTy_sc_all_RECOMM.pdf",
         fit_func=[plot_utils.FitFunctions.RecommX,
                   plot_utils.FitFunctions.RecommY],
         filename_residuals=(
-            f'output/coalign_TxTy_sc_all_RECOMM_residuals.pdf'),
+            f"{conf['plot']['dir']}/"
+            f"coalign_TxTy_sc_all_RECOMM_residuals.pdf"),
         )
+
+
+if __name__ == '__main__':
+    plot_all(common.get_conf_from_cli())

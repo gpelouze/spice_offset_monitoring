@@ -586,7 +586,7 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
         yaml.safe_dump(res, f, sort_keys=False)
 
 
-def process_all(
+def process_time_span(
         start_date, end_date, study_id, spec_win,
         output_dir='./output', no_stew=False
         ):
@@ -693,43 +693,17 @@ def process_all(
             )
 
 
-def cli():
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        '--start-date', required=True,
-        help='processing start date (YYYY-MM-DD)'
-        )
-    p.add_argument(
-        '--end-date', required=True,
-        help='processing end date (YYYY-MM-DD)'
-        )
-    p.add_argument(
-        '--study-id',
-        help='study ID in MISO'
-        )
-    p.add_argument(
-        '--spec-win', required=True,
-        help='spectral window'
-        )
-    p.add_argument(
-        '--no-stew', action='store_true',
-        help='skip jitter correction using spice_stew'
-        )
-    p.add_argument(
-        '--output-dir', default='./output',
-        help='output directory'
-        )
-    args = p.parse_args()
-
-    process_all(
-        args.start_date,
-        args.end_date,
-        args.study_id,
-        args.spec_win,
-        output_dir=args.output_dir,
-        no_stew=args.no_stew,
-        )
+def process_all(conf):
+    for time_span in conf['time_spans']:
+        process_time_span(
+            time_span['start_date'],
+            time_span['end_date'],
+            time_span['study_id'],
+            time_span['spec_win'],
+            output_dir=time_span['dir'],
+            no_stew=conf['processing']['no_stew'],
+            )
 
 
 if __name__ == '__main__':
-    cli()
+    process_all(common.get_conf_from_cli())

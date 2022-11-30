@@ -46,8 +46,9 @@ class ThompsonData:
         ]).T
 
     def __init__(self):
-        self.date = [self.t0 + datetime.timedelta(hours=np.mean([tx, ty]))
-                  for tx, ty in zip(self.tx, self.ty)]
+        self.date = [
+            self.t0 + datetime.timedelta(hours=np.mean([tx, ty]))
+            for tx, ty in zip(self.tx, self.ty)]
         self.dx = self.dx + 173
         self.dy = self.dy + 205
 
@@ -55,10 +56,10 @@ class ThompsonData:
         return pd.DataFrame(dict(date=self.date, dx=self.dx, dy=self.dy))
 
 
-def list_of_dict_to_dict_of_arr(l):
-    keys = l[0].keys()
+def list_of_dict_to_dict_of_arr(lst):
+    keys = lst[0].keys()
     d_out = {k: [] for k in keys}
-    for d in l:
+    for d in lst:
         if d.keys() != keys:
             raise ValueError('mismatched keys')
         for k, v in d.items():
@@ -80,7 +81,8 @@ def get_header_data(fname):
     return {kw: header[kw] for kw in keywords}
 
 
-def get_data(source_name, output_dir):
+def get_data(conf, time_span):
+    output_dir = time_span['dir']
     yml_fnames = glob.glob(f'{output_dir}/coalign_output/*_coaligned.yml')
 
     dat = []
@@ -89,13 +91,21 @@ def get_data(source_name, output_dir):
         with open(yml_fname, 'r') as f:
             res = yaml.safe_load(f)
         res['date'] = common.SpiceUtils.filename_to_date(f'{spice_fname}.fits')
-        plot_dir = os.path.relpath(f'{output_dir}/coalign_output', 'output/')
+        plot_dir = os.path.relpath(
+            f'{output_dir}/coalign_output',
+            conf['plot']['dir'],
+            )
         res['plot_pdf'] = f'{plot_dir}/{spice_fname}_coaligned.pdf'
         res['plot_jpg'] = f'{plot_dir}/{spice_fname}_coaligned.jpg'
+        res['plot_marker'] = time_span['plot_marker']
         wcs = res.pop('wcs')
         res.update(wcs)
+        if conf['processing']['no_stew']:
+            data_dir = 'spice_stew_dummy'
+        else:
+            data_dir = 'spice_stew'
         header_data = get_header_data(os.path.join(
-            output_dir, 'spice_stew', f'{spice_fname}_remapped_img.fits'))
+            output_dir, data_dir, f'{spice_fname}_remapped_img.fits'))
         res.update(header_data)
         dat.append(res)
 
@@ -118,7 +128,7 @@ def get_data(source_name, output_dir):
     dat['R_cen_x'] = dat['CRVAL1'] * 3600 / R_sun  # arcsec
     dat['R_cen_y'] = dat['CRVAL2'] * 3600 / R_sun  # arcsec
 
-    dat['data_source'] = source_name
+    dat['data_source'] = time_span['title']
 
     return pd.DataFrame(dat)
 
@@ -139,7 +149,8 @@ class FitFunctions:
         def label(self, y, x, error=True, R2=True, fmt='.2f'):
             pass
 
-        def p0(self):
+        @staticmethod
+        def p0():
             return None
 
         def fit(self):

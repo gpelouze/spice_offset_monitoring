@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 
@@ -5,10 +6,12 @@ from dateutil.parser import parse as parse_date
 import astropy.units as u
 import numpy as np
 import pandas as pd
+import yaml
 
 
 class SpiceUtils:
-    re_spice_L123_filename = re.compile('''
+    re_spice_L123_filename = re.compile(
+        r'''
         solo
         _(?P<level>L[123])
         _spice
@@ -22,7 +25,8 @@ class SpiceUtils:
         _(?P<SPIOBSID>\d+)-(?P<RASTERNO>\d+)
         \.fits
         ''',
-        re.VERBOSE)
+        re.VERBOSE,
+        )
 
     @staticmethod
     def read_spice_uio_catalog():
@@ -37,18 +41,28 @@ class SpiceUtils:
 
         Example queries that can be done on the result:
 
-        * `df[(df.LEVEL == "L2") & (df["DATE-BEG"] >= "2020-11-17") & (df["DATE-BEG"] < "2020-11-18") & (df.XPOSURE > 60.)]`
-        * `df[(df.LEVEL == "L2") & (df.STUDYDES == "Standard dark for cruise phase")]`
+        * `df[(df.LEVEL == "L2") &
+              (df["DATE-BEG"] >= "2020-11-17") &
+              (df["DATE-BEG"] < "2020-11-18") &
+              (df.XPOSURE > 60.)
+              ]`
+        * `df[(df.LEVEL == "L2") &
+              (df.STUDYDES == "Standard dark for cruise phase")
+              ]`
 
-        Source: https://spice-wiki.ias.u-psud.fr/doku.php/data:data_analysis_manual:read_catalog_python
+        Source: https://spice-wiki.ias.u-psud.fr/doku.php/\
+                data:data_analysis_manual:read_catalog_python
         """
         cat_file = os.path.join(
             os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
-            'SPICE/fits/spice_catalog.txt')
+            'SPICE/fits/spice_catalog.txt'
+            )
         columns = list(pd.read_csv(cat_file, nrows=0).keys())
-        date_columns = ['DATE-BEG','DATE', 'TIMAQUTC']
-        df = pd.read_table(cat_file, skiprows=1, names=columns, na_values="MISSING",
-                        parse_dates=date_columns, low_memory=False)
+        date_columns = ['DATE-BEG', 'DATE', 'TIMAQUTC']
+        df = pd.read_table(
+            cat_file, skiprows=1, names=columns, na_values="MISSING",
+            parse_dates=date_columns, low_memory=False
+            )
         df.LEVEL = df.LEVEL.apply(lambda string: string.strip())
         df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
         return df
@@ -75,13 +89,14 @@ class SpiceUtils:
             'SPICE/fits/',
             'level' + d['level'].lstrip('L'),
             f'{date.year:04d}/{date.month:02d}/{date.day:02d}',
-            filename)
+            filename
+            )
 
         return fullpath
 
     @staticmethod
     def slit_px(header):
-        ''' Compute the first and last pixel of the slit from a FITS header '''
+        """ Compute the first and last pixel of the slit from a FITS header """
         ybin = header['NBIN2']
         h_detector = 1024 / ybin
         if header['DETECTOR'] == 'SW':
@@ -120,7 +135,24 @@ class EuiUtils:
         return os.path.join(output_dir, base)
 
 
+class Config(dict):
+    def __init__(self, filename):
+        with open(filename, 'r') as f:
+            conf = yaml.safe_load(f)
+        super().__init__(conf)
+
+
 def ang2pipi(ang):
     """ put angle between ]-180, +180] deg """
     pi = u.Quantity(180, 'deg')
-    return - ((- ang + pi) % (2*pi) - pi)
+    return - ((- ang + pi) % (2 * pi) - pi)
+
+
+def get_conf_from_cli():
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        'conf_file', metavar='yaml_file',
+        help='configuration file',
+        )
+    args = p.parse_args()
+    return Config(args.conf_file)
