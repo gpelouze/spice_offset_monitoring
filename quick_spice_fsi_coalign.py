@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import copy
 import datetime
 import os
 import traceback
@@ -21,6 +22,8 @@ from papy.sol.coord import diff_rot
 import align_images
 import papy.plot
 import spice_stew
+import spice_jitter_correction
+from spice_jitter_correction.utils import SpiceFilename
 
 import common
 
@@ -193,51 +196,135 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
     return fsi_file_L2
 
 
-def dummy_stew(
-        filename, output_dir, sum_wvl=False,
-        windows=None, overwrite=False
-        ):
-    os.makedirs(output_dir, exist_ok=True)
-    # filename operations
-    basename = os.path.splitext(os.path.basename(filename))[0]
-    if sum_wvl:
-        output_fits = f'{output_dir}/{basename}_remapped_img.fits'
-    else:
-        output_fits = f'{output_dir}/{basename}_remapped.fits'
+class JitterCorrector:
+    def __init__(
+            self,
+            methods,
+            output_dir,
+            overwrite=False,
+            sum_wvl=True,
+            windows=None,
+            plot_results=True,
+            ):
+        self.methods = methods
+        self.output_dir = output_dir
+        self.overwrite = overwrite
+        self.sum_wvl = sum_wvl
+        self.windows = windows
+        self.plot_results = plot_results
 
-    if os.path.isfile(output_fits) and not overwrite:
-        print(f'Aligned file exists: {output_fits}, exiting')
+        if 'kernels' in self.methods:
+            self._ssp = spice_stew.SpiceSpicePointing()
+
+    def _get_output_filename(self, filename):
+        filename = SpiceFilename(filename)
+        filename_output = copy.copy(filename)
+        filename_output['path'] = self.output_dir
+        if self.sum_wvl:
+            filename_output['level'] = 'L2r_quicklook'
+        else:
+            filename_output['level'] = 'L2r'
+        return filename_output.to_str()
+
+    def fits(self, filename):
+        try:
+            return spice_jitter_correction.correct_jitter(
+                filename,
+                self.output_dir,
+                overwrite=self.overwrite,
+                plot_results=self.plot_results,
+                sum_wvl=self.sum_wvl,
+                windows=self.windows,
+                )
+        except KeyError:
+            raise ValueError
+
+    def kernels(self, filename):
+        try:
+            return spice_stew.correct_spice_pointing(
+                self._ssp,
+                filename,
+                self.output_dir,
+                overwrite=self.overwrite,
+                plot_results=self.plot_results,
+                sum_wvl=self.sum_wvl,
+                windows=self.windows,
+                )
+        except spiceypy.utils.exceptions.SpiceNOFRAMECONNECT:
+            raise ValueError
+
+    def dummy(self, filename):
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        output_fits = self._get_output_filename(filename)
+
+        if os.path.isfile(output_fits) and not self.overwrite:
+            print(f'Aligned file exists: {output_fits}, exiting')
+            return output_fits
+
+        hdulist = fits.open(filename)
+        new_hdulist = fits.HDUList(hdus=[])
+        windows = self.windows
+        if windows is None:
+            windows = [hdu.name for hdu in hdulist
+                       if hdu.is_image and (hdu.name != 'WCSDVARR')]
+        windows = windows + [hdu.name for hdu in hdulist
+                             if not hdu.is_image or (hdu.name == 'WCSDVARR')]
+        for win in windows:
+            hdu = hdulist[win]
+            if hdu.is_image and (hdu.name != 'WCSDVARR'):
+                if self.sum_wvl:
+                    cube = np.squeeze(hdu.data)  # remove t axis
+                    spectral_window = np.any(np.isnan(cube), axis=2)
+                    iymin, iymax = common.SpiceUtils.vertical_edges_limits(
+                        hdu.header)
+                    spectral_window = spectral_window[:, iymin:iymax + 1]
+                    valid_columns = ~np.any(spectral_window, axis=1)
+                    cube = cube[valid_columns]  # columns with no NaNs
+                    img = np.nansum(cube, axis=0)  # Sum over wavelengths
+                    hdu.data = img
+                hdu.update_header()
+                hdu.header.add_history('dummy jitter correction')
+                hdu.add_datasum()
+                hdu.add_checksum()
+            new_hdulist.append(hdu)
+
+        # save data
+        new_hdulist.writeto(output_fits, overwrite=self.overwrite)
+
         return output_fits
 
-    hdulist = fits.open(filename)
-    new_hdulist = fits.HDUList(hdus=[])
-    if windows is None:
-        windows = [hdu.name for hdu in hdulist
-                   if hdu.is_image and (hdu.name != 'WCSDVARR')]
-    windows += [hdu.name for hdu in hdulist
-                if not hdu.is_image or (hdu.name == 'WCSDVARR')]
-    for win in windows:
-        hdu = hdulist[win]
-        if hdu.is_image and (hdu.name != 'WCSDVARR'):
-            if sum_wvl:
-                cube = np.squeeze(hdu.data)  # remove t axis
-                spectral_window = np.any(np.isnan(cube), axis=2)
-                iymin, iymax = common.SpiceUtils.vertical_edges_limits(hdu.header)
-                spectral_window = spectral_window[:, iymin:iymax + 1]
-                valid_columns = ~np.any(spectral_window, axis=1)
-                cube = cube[valid_columns]  # columns with no NaNs
-                img = np.nansum(cube, axis=0)  # Sum over wavelengths
-                hdu.data = img
-            hdu.update_header()
-            hdu.header.add_history('dummy_stew')
-            hdu.add_datasum()
-            hdu.add_checksum()
-        new_hdulist.append(hdu)
+    def _apply_method(self, method, filename):
+        if method == 'fits':
+            print('Correcting pointing with FITS data')
+            return self.fits(filename)
+        elif method == 'kernels':
+            print('Correcting pointing with SPICE kernels')
+            return self.kernels(filename)
+        elif method == 'dummy':
+            print('Applying dummy pointing correction')
+            return self.dummy(filename)
+        else:
+            raise ValueError(f'unknown jitter correction method: {method}')
 
-    # save data
-    new_hdulist.writeto(output_fits, overwrite=overwrite)
+    def correct(self, filename):
 
-    return output_fits
+        # check if files exist
+        output_fits = self._get_output_filename(filename)
+        if os.path.isfile(output_fits) and not self.overwrite:
+            print(f'Aligned file exists: {output_fits}, exiting')
+            return output_fits
+
+        # apply correction
+        for method in self.methods:
+            try:
+                return self._apply_method(method, filename)
+            except ValueError:
+                print(f'error during jitter correction (method: {method}):')
+                print(traceback.format_exc())
+                print('-----------------------------------------------------')
+                continue
+        raise ValueError('no jitter correction method converged')
 
 
 def get_spice_image_data(filename, window):
@@ -316,7 +403,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    basename = os.path.basename(spice_file).rstrip('_remapped_img.fits')
+    basename = os.path.basename(spice_file).rstrip('.fits')
     new_spice_filename = f'{basename}_spice_img.fits'
     new_spice_filename = os.path.join(output_dir, new_spice_filename)
     new_fsi_filename = f'{basename}_fsi_img.fits'
@@ -593,7 +680,8 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
 
 def process_time_span(
         start_date, end_date, study_id, spec_win,
-        output_dir='./output', no_stew=False
+        jitter_correction,
+        output_dir='./output',
         ):
 
     os.makedirs(output_dir, exist_ok=True)
@@ -611,8 +699,15 @@ def process_time_span(
     for fn in spice_filenames:
         print(fn)
 
-    if not no_stew:
-        ssp = spice_stew.SpiceSpicePointing()
+    jitter_corrector = JitterCorrector(
+        jitter_correction,
+        f'{output_dir}/spice_L2r',
+        overwrite=False,
+        sum_wvl=True,
+        windows=[spec_win],
+        plot_results=False,
+        )
+
     n_tot = len(spice_filenames)
     for i, spice_file in enumerate(spice_filenames):
 
@@ -648,31 +743,9 @@ def process_time_span(
         fsi_file_L1 = common.EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
         print(fsi_file_L1)
 
-        if not no_stew:
-            print('Correcting pointing with SPICE kernels')
-            try:
-                spice_file_aligned = spice_stew.correct_spice_pointing(
-                    ssp,
-                    spice_file,
-                    f'{output_dir}/spice_stew',
-                    overwrite=False,
-                    plot_results=True,
-                    sum_wvl=True,
-                    windows=[spec_win],
-                    )
-            except (spiceypy.utils.exceptions.SpiceNOFRAMECONNECT, ValueError):
-                print('An error occurred while running spice_stew:')
-                print(traceback.format_exc())
-                continue
-        else:
-            print('Applying dummy SPICE kernel pointing correction')
-            spice_file_aligned = dummy_stew(
-                spice_file,
-                f'{output_dir}/spice_stew_dummy',
-                sum_wvl=True,
-                overwrite=True,
-                windows=[spec_win],
-                )
+        print('Applying jitter correction')
+        spice_file_aligned = jitter_corrector.correct(spice_file)
+
         with fits.open(spice_file) as hdul:
             roll = hdul[0].header['CROTA']
 
@@ -711,8 +784,8 @@ def process_all(conf):
             time_span['end_date'],
             time_span['study_id'],
             time_span['spec_win'],
+            conf['processing']['jitter_correction'],
             output_dir=time_span['dir'],
-            no_stew=conf['processing']['no_stew'],
             )
 
 

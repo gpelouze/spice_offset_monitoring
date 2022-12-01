@@ -100,12 +100,9 @@ def get_data(conf, time_span):
         res['plot_marker'] = time_span['plot_marker']
         wcs = res.pop('wcs')
         res.update(wcs)
-        if conf['processing']['no_stew']:
-            data_dir = 'spice_stew_dummy'
-        else:
-            data_dir = 'spice_stew'
+        data_dir = 'spice_L2r'
         header_data = get_header_data(os.path.join(
-            output_dir, data_dir, f'{spice_fname}_remapped_img.fits'))
+            output_dir, data_dir, f'{spice_fname}.fits'))
         res.update(header_data)
         dat.append(res)
 

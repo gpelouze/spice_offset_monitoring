@@ -1,5 +1,5 @@
 processing:
-  no_stew: True
+  jitter_correction: ['dummy']
 
 plot:
   dir: output/test/plot/

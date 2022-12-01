@@ -1,5 +1,5 @@
 processing:
-  no_stew: True
+  jitter_correction: ['fits', 'kernels']
 
 plot:
   dir: output/

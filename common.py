@@ -14,6 +14,7 @@ class SpiceUtils:
         r'''
         solo
         _(?P<level>L[123])
+        (?P<level_extension>r?(_quicklook)?)
         _spice
             (?P<concat>-concat)?
             -(?P<slit>[wn])

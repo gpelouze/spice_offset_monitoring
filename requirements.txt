@@ -12,7 +12,8 @@ spiceypy>=5.0.1
 scikit-learn==1.1.3
 pdf2image >= 1.16
 
-papy @ git+https://github.com/gpelouze/papy@495ea87fa0117b5f4321ddda20f8485a65c52068
-spice-stew @ git+https://github.com/gpelouze/spice_stew@53a8610f91ea1dbe05ba0383e6307b0d774860e8
+papy @ git+https://github.com/gpelouze/papy@v2022.8.24
+spice-stew @ git+https://github.com/gpelouze/spice_stew@v2022.12.01
+spice-jitter-correction @ git+https://github.com/gpelouze/spice_jitter_correction@v2022.12.01
 eui-selektor-client @ git+https://github.com/gpelouze/eui_selektor_client/@0e2cd434055bb3ba17b72b18ac2b7365fed582fc
-align-images @ git+https://github.com/gpelouze/align_images@7a357ffbbc457b3963f5df5daa54d7ae17b85f20
+align-images @ git+https://github.com/gpelouze/align_images@v2022.7.11
