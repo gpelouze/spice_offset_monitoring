@@ -101,6 +101,7 @@ def plot_residuals(df, x_key, x_label, fit_funcs, filename=None):
             res = y - f(x, *f.popt)
             ax.plot(x, res, color=f'C{i}', **kw)
     # Intervals
+    spice_psf_fwhm = 8
     for i, y in enumerate([df['dx_sc'], df['dy_sc']]):
         x = df[x_key]
         f = fit_funcs[i]
@@ -110,6 +111,11 @@ def plot_residuals(df, x_key, x_label, fit_funcs, filename=None):
         fwhm = np.sqrt(8 * np.log(2)) * np.std(res)
         xy = {0: 'X', 1: 'Y'}[i]
         label = f'${xy}$: {fwhm:.1f}″'
+        print('Residuals', label)
+        # Percentage within 1 SPICE PSF
+        p = np.mean(np.abs(res < spice_psf_fwhm / 2))
+        print(f'{p:.2%} of points within 1 SPICE PSF FWHM')
+        # Plot regions
         x_ = np.array(xlim)
         m = np.array([m] * 2)
         fwhm = np.array([fwhm] * 2)
@@ -118,9 +124,7 @@ def plot_residuals(df, x_key, x_label, fit_funcs, filename=None):
             color=f'C{i}', alpha=0.2, ec=None,
             label=label,
             )
-        print('Residuals', label)
         ax.set_xlim(*xlim)
-    spice_psf_fwhm = 8
     ax.axhline(
         spice_psf_fwhm / 2,
         color=f'k', ls='--', lw=1,
@@ -165,7 +169,7 @@ def plot_offsets(
         ax.plot(r[x_key], r['dy_sc'], color='C1', **kw)
     # fit
     if fit_func is not None:
-        print('Fits for', x_label)
+        print('\nModel for', x_label)
         fit_funcs = add_fit(ax, df[x_key], df['dx_sc'], df['dy_sc'], fit_func)
     # labels and legend
     ax.set_xlabel(x_label)

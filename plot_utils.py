@@ -262,7 +262,7 @@ class Filters:
 
     @staticmethod
     def center(df):
-        print()
+        print('\nFiltering data')
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
         m_dr = (df['dr'] < 30)
@@ -275,6 +275,7 @@ class Filters:
 
     @staticmethod
     def disk(df):
+        print('\nFiltering data')
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
         m_dr = (df['dr'] < 30)
@@ -287,6 +288,7 @@ class Filters:
 
     @staticmethod
     def limb(df):
+        print('\nFiltering data')
         m_cc = (df['max_cc'] > 0.2)
         print(f'Frames with cc < 0.2: {1 - m_cc.mean():.1%}')
         m_dr = (df['dr'] < 30)
