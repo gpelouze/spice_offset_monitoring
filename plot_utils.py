@@ -230,11 +230,11 @@ class FitFunctions:
 
     class RecommY(Constant):
         def fit(self):
-            self.popt = [-72.4]
+            self.popt = [-72.2]
             self.pcov = None
 
         def label(self, *args, **kwargs):
-            return f'$\\Delta Y = - 72.4$'
+            return f'$\\Delta Y = - 72.2$'
 
     class InverseSq(_Base):
         def __call__(self, x, a, b):
