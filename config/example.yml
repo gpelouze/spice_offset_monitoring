@@ -1,0 +1,22 @@
+processing:
+  jitter_correction: ['fits', 'kernels', 'dummy']
+  # List of methods to correct the jitter
+  #   fits: use the pointing in the FITS files (files after April 2022)
+  #   kernels: compute the pointing from SPICE kernels (requires spice_stew)
+  #   dummy: apply no correction, but still generate the files
+  # The methods are tried in order, falling back to next one in case of failure
+
+plot:
+  dir: 'output/example/plots'
+
+
+time_spans:
+  # List of one or multiple time spans, with the following options:
+
+  - title: 'Synoptic'
+    dir: 'output/example/SYN_Lyg_CIII_new_syn/'
+    start_date: '2022-05-01'
+    end_date: '2022-06-01'
+    study_id: '1963'
+    spec_win: 'Ly-gamma-CIII group (Merged)'
+    plot_marker: 's'
