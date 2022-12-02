@@ -94,7 +94,11 @@ class PointingResultsExplorer:
                     )
 
 
-if __name__ == '__main__':
-    e = PointingResultsExplorer(common.get_conf_from_cli())
+def gen_explorer(config):
+    e = PointingResultsExplorer(config)
     e.gen_jpg_previews()
     e.gen_explorer()
+
+
+if __name__ == '__main__':
+    gen_explorer(common.get_conf_from_cli())
