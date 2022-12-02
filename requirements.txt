@@ -15,5 +15,5 @@ pdf2image >= 1.16
 papy @ git+https://github.com/gpelouze/papy@v2022.8.24
 spice-stew @ git+https://github.com/gpelouze/spice_stew@v2022.12.01
 spice-jitter-correction @ git+https://github.com/gpelouze/spice_jitter_correction@v2022.12.01
-eui-selektor-client @ git+https://github.com/gpelouze/eui_selektor_client/@0e2cd434055bb3ba17b72b18ac2b7365fed582fc
+eui-selektor-client @ git+https://github.com/gpelouze/eui_selektor_client@v2022.12.02
 align-images @ git+https://github.com/gpelouze/align_images@v2022.7.11
