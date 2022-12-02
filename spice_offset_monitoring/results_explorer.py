@@ -7,7 +7,7 @@ import bokeh.models
 import pandas as pd
 import pdf2image
 
-import common
+import utils
 import plot_utils
 
 
@@ -100,5 +100,9 @@ def gen_explorer(config):
     e.gen_explorer()
 
 
+def main():
+    gen_explorer(utils.get_conf_from_cli())
+
+
 if __name__ == '__main__':
-    gen_explorer(common.get_conf_from_cli())
+    main()

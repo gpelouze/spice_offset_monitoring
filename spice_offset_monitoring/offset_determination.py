@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import argparse
 import copy
 import datetime
 import os
@@ -25,7 +24,7 @@ import spice_stew
 import spice_jitter_correction
 from spice_jitter_correction.utils import SpiceFilename
 
-import common
+import utils
 
 
 def list_spice_files(start_date, end_date, study_id):
@@ -48,7 +47,7 @@ def list_spice_files(start_date, end_date, study_id):
     if type(study_id) is not str:
         raise ValueError(f'study_id must be str (got {type(study_id)})')
 
-    cat = common.SpiceUtils.read_spice_uio_catalog()
+    cat = utils.SpiceUtils.read_spice_uio_catalog()
     filters = (
         (cat['DATE-BEG'] > start_date)
         & (cat['DATE-BEG'] <= end_date)
@@ -183,7 +182,7 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
 
 
 def gen_fsi_L2(fsi_file_L1, output_dir):
-    fsi_file_L2 = common.EuiUtils.local_L2_path(output_dir, fsi_file_L1)
+    fsi_file_L2 = utils.EuiUtils.local_L2_path(output_dir, fsi_file_L1)
     if os.path.isfile(fsi_file_L2):
         print(f'FSI L2 file exists: {fsi_file_L2}, exiting')
     else:
@@ -276,7 +275,7 @@ class JitterCorrector:
                 if self.sum_wvl:
                     cube = np.squeeze(hdu.data)  # remove t axis
                     spectral_window = np.any(np.isnan(cube), axis=2)
-                    iymin, iymax = common.SpiceUtils.vertical_edges_limits(
+                    iymin, iymax = utils.SpiceUtils.vertical_edges_limits(
                         hdu.header)
                     spectral_window = spectral_window[:, iymin:iymax + 1]
                     valid_columns = ~np.any(spectral_window, axis=1)
@@ -424,7 +423,7 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     spice_img, spice_header = spice_img_data
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
-    iymin, iymax = common.SpiceUtils.vertical_edges_limits(spice_header)
+    iymin, iymax = utils.SpiceUtils.vertical_edges_limits(spice_header)
     spice_img = spice_img[iymin:iymax + 1]
 
     # Correct solar rotation in SPICE header
@@ -472,8 +471,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
         world_spice[:, :, 0, 0, 1],
         wcs_spice.world_axis_units[1]
         )
-    Tx_spice = common.ang2pipi(Tx_spice).to('arcsec').value
-    Ty_spice = common.ang2pipi(Ty_spice).to('arcsec').value
+    Tx_spice = utils.ang2pipi(Tx_spice).to('arcsec').value
+    Ty_spice = utils.ang2pipi(Ty_spice).to('arcsec').value
 
     # FSI WCS
     wcs_fsi = wcs.WCS(fsi_header)
@@ -489,8 +488,8 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     assert px_fsi.shape == world_fsi.shape
     Tx_fsi = u.Quantity(world_fsi[:, :, 0], wcs_fsi.world_axis_units[0])
     Ty_fsi = u.Quantity(world_fsi[:, :, 1], wcs_fsi.world_axis_units[1])
-    Tx_fsi = common.ang2pipi(Tx_fsi).to('arcsec').value
-    Ty_fsi = common.ang2pipi(Ty_fsi).to('arcsec').value
+    Tx_fsi = utils.ang2pipi(Tx_fsi).to('arcsec').value
+    Ty_fsi = utils.ang2pipi(Ty_fsi).to('arcsec').value
 
     # Generate common coordinates
     common_Txy_size = 4  # arcsec
@@ -721,7 +720,7 @@ def process_time_span(
             print(f'\nSkipping {spice_file} (existing results found)')
             continue
 
-        spice_file = common.SpiceUtils.ias_fullpath(spice_file)
+        spice_file = utils.SpiceUtils.ias_fullpath(spice_file)
         print('\nProcessing', spice_file, f'{i}/{n_tot}')
 
         # Skip incomplete files
@@ -740,7 +739,7 @@ def process_time_span(
         if fsi_file_L1 is None:
             print(f'No FSI image found for {spice_file}, skipping')
             continue
-        fsi_file_L1 = common.EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
+        fsi_file_L1 = utils.EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
         print(fsi_file_L1)
 
         print('Applying jitter correction')
@@ -789,5 +788,9 @@ def process_all(conf):
             )
 
 
+def main():
+    process_all(utils.get_conf_from_cli())
+
+
 if __name__ == '__main__':
-    process_all(common.get_conf_from_cli())
+    main()

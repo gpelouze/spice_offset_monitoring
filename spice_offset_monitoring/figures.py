@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import common
+import utils
 import plot_utils
 
 
@@ -270,5 +270,9 @@ def plot_all(conf):
         )
 
 
+def main():
+    plot_all(utils.get_conf_from_cli())
+
+
 if __name__ == '__main__':
-    plot_all(common.get_conf_from_cli())
+    main()
