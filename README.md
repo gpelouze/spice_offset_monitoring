@@ -43,7 +43,7 @@ In Python, use:
 
 ```python
 import spice_offset_monitoring as som
-conf = 'config/example.yml'
+conf = som.Config('config/example.yml')
 som.process(conf)
 som.gen_explorer(conf)
 som.gen_figures(conf)
