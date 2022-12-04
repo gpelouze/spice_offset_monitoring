@@ -11,7 +11,7 @@ import svgpath2mpl
 import tqdm
 import yaml
 
-import utils
+from . import utils
 
 
 marker = svgpath2mpl.parse_path('''

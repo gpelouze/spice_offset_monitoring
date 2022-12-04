@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import utils
-import plot_utils
+from . import plot_utils
 
 
 def get_legend_handles(df):
@@ -214,7 +213,7 @@ def plot_offsets(
             )
 
 
-def plot_all(conf):
+def gen_figures(conf):
     dat = pd.concat([plot_utils.get_data(conf, time_span)
                      for time_span in conf['time_spans']])
     dat_filtered = plot_utils.Filters.center(dat)
@@ -268,11 +267,3 @@ def plot_all(conf):
             f"{conf['plot']['dir']}/"
             f"coalign_TxTy_sc_all_RECOMM_residuals.pdf"),
         )
-
-
-def main():
-    plot_all(utils.get_conf_from_cli())
-
-
-if __name__ == '__main__':
-    main()

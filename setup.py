@@ -5,6 +5,12 @@ with open('README.md', 'r') as f:
 with open('requirements.txt', 'r') as f:
     requirements = f.read().strip('\n').split('\n')
 
+entry_points = {
+    'console_scripts': [
+        'spice_offset_monitoring=spice_offset_monitoring.cli:cli',
+        ]
+    }
+
 setuptools.setup(
     name='spice_offset_monitoring',
     version='2022.12.02',
@@ -14,6 +20,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/gpelouze/spice_offset_monitoring',
+    entry_points=entry_points,
     packages=setuptools.find_packages(),
     python_requires='>=3.8',
     install_requires=requirements,

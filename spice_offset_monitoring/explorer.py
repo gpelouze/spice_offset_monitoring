@@ -7,8 +7,7 @@ import bokeh.models
 import pandas as pd
 import pdf2image
 
-import utils
-import plot_utils
+from . import plot_utils
 
 
 class PointingResultsExplorer:
@@ -98,11 +97,3 @@ def gen_explorer(config):
     e = PointingResultsExplorer(config)
     e.gen_jpg_previews()
     e.gen_explorer()
-
-
-def main():
-    gen_explorer(utils.get_conf_from_cli())
-
-
-if __name__ == '__main__':
-    main()

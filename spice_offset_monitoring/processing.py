@@ -24,7 +24,7 @@ import spice_stew
 import spice_jitter_correction
 from spice_jitter_correction.utils import SpiceFilename
 
-import utils
+from . import utils
 
 
 def list_spice_files(start_date, end_date, study_id):
@@ -776,7 +776,7 @@ def process_time_span(
             )
 
 
-def process_all(conf):
+def process(conf):
     for time_span in conf['time_spans']:
         process_time_span(
             time_span['start_date'],
@@ -786,11 +786,3 @@ def process_all(conf):
             conf['processing']['jitter_correction'],
             output_dir=time_span['dir'],
             )
-
-
-def main():
-    process_all(utils.get_conf_from_cli())
-
-
-if __name__ == '__main__':
-    main()

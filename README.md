@@ -3,9 +3,9 @@
 Monitor the evolution of the pointing offset of the SPICE spectrometer by
 coaligning rasters with images of EUI/FSI.
 
-This tool requires access to the internal SPICE and EUI data archives, 
-[EUI selektor], [`euiprep`], and the [SPICE kernels for Solar 
-Orbiter][solo-spice-kernels]. See the [installation](#installation) section 
+This tool requires access to the internal SPICE and EUI data archives,
+[EUI selektor], [`euiprep`], and the [SPICE kernels for Solar
+Orbiter][solo-spice-kernels]. See the [installation](#installation) section
 for further information.
 
 [EUI selektor]: https://www.sidc.be/EUI/data_internal/selektor/
@@ -15,29 +15,45 @@ for further information.
 
 ## Usage
 
-### Command line interface
+### Command line and Python interfaces
 
-The module has three main components, that can be called from 
-the command line:
+The module has three main commands:
 
-- `offset_determination.py`: main pipeline that computes the offset 
-  between SPICE and FSI.
-- `results_explorer.py`: generates an interactive result explorer (bokeh).
-- `figures.py`: generates the figures (matplotlib).
-- `pipeline.py`: all of the above.
+- `process`: computes the offset between SPICE and FSI
+- `gen_explorer`: generates an interactive result explorer (bokeh)
+- `gen_figures`: generates the figures (matplotlib)
 
-All scripts must be passed the path to a configuration file (see below), e.g.:
+All commands require the path to a configuration file (see section below).
+
+They can be called from the command line:
 
 ```shell
-python spice_offset_monitoring/pipeline.py config/example.yml
+spice_offset_monitoring -c config/example.yml process
+spice_offset_monitoring -c config/example.yml gen-explorer
+spice_offset_monitoring -c config/example.yml gen-figures
 ```
 
-Components try to not regenerate files that already exist. This means that 
-the pipeline can be run several times in a row with the same config file, 
-and will not redo unnecessary computations. It allows e.g. to restart it 
-after an interruption, or to process data newly added to the archive. To 
-regenerate files, delete them.
+Commands can also be chained:
 
+```shell
+spice_offset_monitoring -c config/example.yml process gen-figures
+```
+
+In Python, use:
+
+```python
+import spice_offset_monitoring as som
+conf = 'config/example.yml'
+som.process(conf)
+som.gen_explorer(conf)
+som.gen_figures(conf)
+```
+
+The processing command tries to not regenerate files that already exist. This
+means that it can be run several times in a row with the same config file, and
+will not rerun unnecessary computations. It allows e.g. to restart it after an
+interruption, or to process data newly added to the archive. To regenerate
+files, delete them.
 
 
 ### Configuration
@@ -82,7 +98,7 @@ pip install git+https://github.com/gpelouze/quick_spice_fsi_coalign
 ### Dependencies (TODO)
 
 - Access to the data archive `$SOLO_ARCHIVE`
-- Access to EUI selektor (client installed as dependency, but see 
-  documentation for credentials)
+- Access to EUI selektor (client installed as dependency, but see documentation
+  for credentials)
 - Spice_kernels `$SPICE_KERNELS_SOLO`
 - eui_prep

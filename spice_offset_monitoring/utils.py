@@ -147,13 +147,3 @@ def ang2pipi(ang):
     """ put angle between ]-180, +180] deg """
     pi = u.Quantity(180, 'deg')
     return - ((- ang + pi) % (2 * pi) - pi)
-
-
-def get_conf_from_cli():
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        'conf_file', metavar='yaml_file',
-        help='configuration file',
-        )
-    args = p.parse_args()
-    return Config(args.conf_file)
