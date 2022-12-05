@@ -8,6 +8,7 @@ from . import figures
 
 @click.group(
     help='Monitor the pointing offset SPICE',
+    chain=True,
     )
 @click.option(
     '-c', '--conf-file',
