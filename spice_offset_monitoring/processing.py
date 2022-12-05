@@ -138,7 +138,8 @@ def get_closest_fsi_L1_file_from_selektor(search_date, band, max_t_dist):
             return res_after
 
 
-def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
+def get_fsi_L1(spice_file, band, output_dir,
+               metadata_file, max_t_dist=6):
     """ Get FSI L1 file to coalign with a SPICE file
 
     Parameters
@@ -152,39 +153,39 @@ def get_fsi_L1(spice_file, band, output_dir, max_t_dist=6):
     max_t_dist : float (default: 6)
         Maximum time distance in hour. If no file exists within [date -
         max_t_dist, date + max_t_dist], return None.
+    metadata_file : str
+        Yaml file used to store the metadata
 
     Returns
     =======
     fsi_file : dict or None
         Dictionary containing info about the closest FSI file, if there is one.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    if os.path.isfile(metadata_file):
+        with open(metadata_file, 'r') as f:
+            fsi_meta = yaml.safe_load(f)
 
-    spice_file_base = os.path.splitext(os.path.basename(spice_file))[0]
-    cache_file = f'{output_dir}/{spice_file_base}_fsi_info.yml'
-
-    if os.path.isfile(cache_file):
-        with open(cache_file, 'r') as f:
-            return yaml.safe_load(f)
     else:
         spice_hdu = fits.open(spice_file)
         search_date = parse_date(spice_hdu[0].header['DATE-AVG'])
         max_t_dist = datetime.timedelta(hours=max_t_dist)
-        fsi_file = get_closest_fsi_L1_file_from_selektor(
+        fsi_meta = get_closest_fsi_L1_file_from_selektor(
             search_date, band,
             max_t_dist,
             )
-        if fsi_file is not None:
-            fsi_file = fsi_file.to_dict()
-        with open(cache_file, 'w') as f:
-            yaml.safe_dump(fsi_file, f, sort_keys=False)
-        return fsi_file
+        if fsi_meta is None:
+            return ''
+        if fsi_meta is not None:
+            fsi_meta = fsi_meta.to_dict()
+        with open(metadata_file, 'w') as f:
+            yaml.safe_dump(fsi_meta, f, sort_keys=False)
+
+    return utils.EuiUtils.ias_fullpath(fsi_meta['filepath'])
 
 
-def gen_fsi_L2(fsi_file_L1, output_dir):
-    fsi_file_L2 = utils.EuiUtils.local_L2_path(output_dir, fsi_file_L1)
+def gen_fsi_L2(fsi_file_L1, fsi_file_L2):
     if os.path.isfile(fsi_file_L2):
-        print(f'FSI L2 file exists: {fsi_file_L2}, exiting')
+        print('    FSI L2 file exists, exiting')
     else:
         euimap_L2 = euiprep(
             fsi_file_L1,
@@ -192,7 +193,6 @@ def gen_fsi_L2(fsi_file_L1, output_dir):
             save_L2=False,
             )
         euimap_L2.save_fits(fsi_file_L2)
-    return fsi_file_L2
 
 
 class JitterCorrector:
@@ -253,8 +253,6 @@ class JitterCorrector:
             raise ValueError
 
     def dummy(self, filename):
-        os.makedirs(self.output_dir, exist_ok=True)
-
         output_fits = self._get_output_filename(filename)
 
         if os.path.isfile(output_fits) and not self.overwrite:
@@ -311,7 +309,7 @@ class JitterCorrector:
         # check if files exist
         output_fits = self._get_output_filename(filename)
         if os.path.isfile(output_fits) and not self.overwrite:
-            print(f'Aligned file exists: {output_fits}, exiting')
+            print('    aligned file exists, exiting')
             return output_fits
 
         # apply correction
@@ -379,7 +377,8 @@ def get_fsi_image_data(filename):
     return hdu.data, hdu.header
 
 
-def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
+def gen_images_to_coalign(spice_file, fsi_file, spice_window,
+                          new_spice_file, new_fsi_file, preview_file):
     """ Generate SPICE and FSI images that can be coaligned together
 
     Parameters
@@ -387,12 +386,16 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     spice_file : str
         Path to a FITS file containing SPICE intensity maps corrected with
         spice_stew.
-    spice_window : str
-        SPICE window name
     fsi_file : dict
         FSI FITS info.
-    output_dir : str
-        Output directory
+    spice_window : str
+        SPICE window name
+    new_spice_file : str
+        Path to the FITS SPICE image to coalign
+    new_fsi_file : str
+        Path to the FITS FSI image to coalign
+    preview_file
+        Path to the PDF preview
 
     Returns
     =======
@@ -400,26 +403,12 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
     fsi_img : str
         Path to FITS images to coalign
     """
-    os.makedirs(output_dir, exist_ok=True)
 
-    basename = os.path.basename(spice_file).rstrip('.fits')
-    new_spice_filename = f'{basename}_spice_img.fits'
-    new_spice_filename = os.path.join(output_dir, new_spice_filename)
-    new_fsi_filename = f'{basename}_fsi_img.fits'
-    new_fsi_filename = os.path.join(output_dir, new_fsi_filename)
-    plot_filename = f'{basename}.pdf'
-    plot_filename = os.path.join(output_dir, plot_filename)
+    if os.path.isfile(new_fsi_file) and os.path.isfile(new_spice_file):
+        print('    images to coalign exist, exiting')
+        return new_spice_file, new_fsi_file
 
-    if os.path.isfile(new_fsi_filename) and os.path.isfile(new_spice_filename):
-        print(f'Coalign images exist for: {basename}, skipping')
-        return new_spice_filename, new_fsi_filename
-
-    spice_img_data = get_spice_image_data(
-        spice_file,
-        spice_window,
-        )
-    if spice_img_data is None:
-        return None
+    spice_img_data = get_spice_image_data(spice_file, spice_window)
     spice_img, spice_header = spice_img_data
     fsi_img, fsi_header = get_fsi_image_data(fsi_file)
 
@@ -547,13 +536,11 @@ def gen_images_to_coalign(spice_file, spice_window, fsi_file, output_dir):
 
     # Save FITS
     spice_hdu = fits.PrimaryHDU(new_spice_img, header=w_common.to_header())
-    spice_hdu.writeto(new_spice_filename)
+    spice_hdu.writeto(new_spice_file, overwrite=True)
     fsi_hdu = fits.PrimaryHDU(new_fsi_img, header=w_common.to_header())
-    fsi_hdu.writeto(new_fsi_filename)
+    fsi_hdu.writeto(new_fsi_file, overwrite=True)
 
-    plot_images(new_spice_img, new_fsi_img, w_common, plot_filename)
-
-    return new_spice_filename, new_fsi_filename
+    plot_images(new_spice_img, new_fsi_img, w_common, preview_file)
 
 
 def plot_images(spice_img, fsi_img, wcs_common, filename):
@@ -623,32 +610,20 @@ def plot_images(spice_img, fsi_img, wcs_common, filename):
     plt.savefig(filename)
 
 
-def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
+def coalign_spice_fsi_images(fm):
     """ Coalign SPICE and FSI images
 
     Parameters
     ==========
-    spice_img : str
-    fsi_img : str
-        Path to FITS images to coalign, written by `gen_images_to_coalign()`
-    output_dir : str
-        Output directory
-    roll : float or None (default: None)
-        roll in degrees, to save with yml file
+    fm : utils.FilenamesManager
+        Filenames manager
     """
-    os.makedirs(output_dir, exist_ok=True)
-
-    basename = os.path.basename(spice_img)
-    basename = basename.rstrip('_coalign_spice_img.fits')
-    basename = os.path.join(output_dir, basename)
-    plot_filename = f'{basename}_coaligned.pdf'
-    yml_filename = f'{basename}_coaligned.yml'
-    if os.path.isfile(yml_filename):
-        print(f'Coalign results exist for: {basename}, skipping')
+    if os.path.isfile(fm['coalign_output']['results_yml']):
+        print('    coalign results exist, exiting')
         return
 
-    spice_hdu = fits.open(spice_img)[0]
-    fsi_hdu = fits.open(fsi_img)[0]
+    spice_hdu = fits.open(fm['coalign_input']['spice_fits'])[0]
+    fsi_hdu = fits.open(fm['coalign_input']['fsi_fits'])[0]
     w = wcs.WCS(spice_hdu.header)
 
     cube = np.stack([spice_hdu.data, fsi_hdu.data])
@@ -664,16 +639,20 @@ def coalign_spice_fsi_images(spice_img, fsi_img, output_dir, roll=None):
             np.stack([shifts, [0, 0]]),
             )
         )
-    plot_images(aligned_cube[0], aligned_cube[1], w, plot_filename)
+    plot_images(
+        aligned_cube[0], aligned_cube[1],
+        w,
+        fm['coalign_output']['preview_pdf'],
+        )
 
     res = dict(
         dx=float(shifts[0]),
         dy=float(shifts[1]),
         max_cc=float(max_cc),
-        roll=roll,
-        wcs=dict(w.to_header())
+        wcs=dict(w.to_header()),
+        filenames=dict(fm),
         )
-    with open(yml_filename, 'w') as f:
+    with open(fm['coalign_output']['results_yml'], 'w') as f:
         yaml.safe_dump(res, f, sort_keys=False)
 
 
@@ -682,8 +661,6 @@ def process_time_span(
         jitter_correction,
         output_dir='./output',
         ):
-
-    os.makedirs(output_dir, exist_ok=True)
 
     print('\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
     print('STUDY:', study_id)
@@ -694,86 +671,79 @@ def process_time_span(
         end_date,
         study_id,
         )
-    print(len(spice_filenames), 'found')
-    for fn in spice_filenames:
-        print(fn)
+    files = [utils.FilenamesManager(output_dir, f) for f in spice_filenames]
+    print(len(files), 'found')
+    for fm in files:
+        print(fm.name)
 
     jitter_corrector = JitterCorrector(
         jitter_correction,
-        f'{output_dir}/spice_L2r',
+        files[0].dirs['L2r'],
         overwrite=False,
-        sum_wvl=True,
         windows=[spec_win],
         plot_results=False,
         )
 
-    n_tot = len(spice_filenames)
-    for i, spice_file in enumerate(spice_filenames):
+    for i, fm in enumerate(files):
+        print('\nProcessing', fm.name, f'{i+1}/{len(files)}')
 
-        # Check if file exists
-        if os.path.isfile(
-                os.path.join(
-                    output_dir, 'coalign_output',
-                    f'{os.path.splitext(spice_file)[0]}_coaligned.yml'
-                    )
-                ):
-            print(f'\nSkipping {spice_file} (existing results found)')
+        # Bypass everything if coalignment result exists
+        if os.path.isfile(fm['coalign_output']['results_yml']):
+            print('Results file exists, skipping')
             continue
 
-        spice_file = utils.SpiceUtils.ias_fullpath(spice_file)
-        print('\nProcessing', spice_file, f'{i}/{n_tot}')
-
         # Skip incomplete files
-        with fits.open(spice_file) as hdul:
+        with fits.open(fm['input']['fits']) as hdul:
             if hdul[0].header['COMPLETE'] != 'C':
-                print(f'Incomplete data in {spice_file}, skipping')
+                print('Incomplete SPICE data, skipping')
                 continue
 
         print('Getting closest FSI image')
-        fsi_file_L1 = get_fsi_L1(
-            spice_file,
+        fm['fsi']['L1_fits'] = get_fsi_L1(
+            fm['input']['fits'],
             '304',
-            f'{output_dir}/fsi_data',
+            fm.dirs['fsi'],
+            fm['fsi']['L1_yml'],
             max_t_dist=3,
             )
-        if fsi_file_L1 is None:
-            print(f'No FSI image found for {spice_file}, skipping')
+        if not os.path.isfile(fm['fsi']['L1_fits']):
+            print('No FSI image found, skipping')
             continue
-        fsi_file_L1 = utils.EuiUtils.ias_fullpath(fsi_file_L1['filepath'])
-        print(fsi_file_L1)
-
-        print('Applying jitter correction')
-        spice_file_aligned = jitter_corrector.correct(spice_file)
-
-        with fits.open(spice_file) as hdul:
-            roll = hdul[0].header['CROTA']
+        print('    ', fm['fsi']['L1_fits'])
 
         print('Generating L2 FSI image')
-        try:
-            fsi_file_L2 = gen_fsi_L2(fsi_file_L1, f'{output_dir}/fsi_data')
-        except FileNotFoundError:
-            print(f'Could not open {fsi_file_L1}, skipping')
+        fm.fsi_L1_to_L2()
+        gen_fsi_L2(
+            fm['fsi']['L1_fits'],
+            fm['fsi']['L2_fits'],
+            )
+        if not os.path.isfile(fm['fsi']['L2_fits']):
+            print('Could not generate L2 FSI image, skipping')
+            continue
+
+        print('Generating SPICE images (L2r_quicklook)')
+        fm['L2r']['fits'] = jitter_corrector.correct(fm['input']['fits'])
+        if not os.path.isfile(fm['L2r']['fits']):
+            print('Could not generate SPICE L2r, skipping')
             continue
 
         print('Generating images to coalign')
-        img_to_coalign = gen_images_to_coalign(
-            spice_file_aligned,
+        gen_images_to_coalign(
+            fm['L2r']['fits'],
+            fm['fsi']['L2_fits'],
             spec_win,
-            fsi_file_L2,
-            f'{output_dir}/coalign_input',
+            fm['coalign_input']['spice_fits'],
+            fm['coalign_input']['fsi_fits'],
+            fm['coalign_input']['preview_pdf'],
             )
-        if img_to_coalign is None:
-            print('Could not get images to coalign')
+        if not (os.path.isfile(fm['coalign_input']['spice_fits']) and
+                os.path.isfile(fm['coalign_input']['fsi_fits'])
+                ):
+            print('Could not generate images to coalign, skipping')
             continue
-        spice_img, fsi_img = img_to_coalign
 
         print('Coaligning images')
-        coalign_spice_fsi_images(
-            spice_img,
-            fsi_img,
-            f'{output_dir}/coalign_output',
-            roll=roll,
-            )
+        coalign_spice_fsi_images(fm)
 
 
 def process(conf):

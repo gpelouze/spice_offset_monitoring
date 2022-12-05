@@ -41,6 +41,7 @@ def get_header_data(fname):
         'T_FOCUS',
         'T_SW',
         'T_LW',
+        'CROTA',
         ]
     return {kw: header[kw] for kw in keywords}
 
@@ -51,22 +52,24 @@ def get_data(conf, time_span):
 
     dat = []
     for yml_fname in tqdm.tqdm(yml_fnames, desc='Loading data'):
-        spice_fname = os.path.basename(yml_fname).rstrip('_coaligned.yml')
+        print(yml_fname)
         with open(yml_fname, 'r') as f:
             res = yaml.safe_load(f)
-        res['date'] = utils.SpiceUtils.filename_to_date(f'{spice_fname}.fits')
-        plot_dir = os.path.relpath(
-            f'{output_dir}/coalign_output',
+        fm = res.pop('filenames')
+        res['date'] = utils.SpiceUtils.filename_to_date(
+            os.path.basename(fm['input']['fits']))
+        res['plot_pdf'] = os.path.relpath(
+            fm['coalign_output']['preview_pdf'],
             conf['plot']['dir'],
             )
-        res['plot_pdf'] = f'{plot_dir}/{spice_fname}_coaligned.pdf'
-        res['plot_jpg'] = f'{plot_dir}/{spice_fname}_coaligned.jpg'
+        res['plot_jpg'] = os.path.relpath(
+            fm['coalign_output']['preview_jpg'],
+            conf['plot']['dir'],
+            )
         res['plot_marker'] = time_span['plot_marker']
         wcs = res.pop('wcs')
         res.update(wcs)
-        data_dir = 'spice_L2r'
-        header_data = get_header_data(os.path.join(
-            output_dir, data_dir, f'{spice_fname}.fits'))
+        header_data = get_header_data(fm['L2r']['fits'])
         res.update(header_data)
         dat.append(res)
 
@@ -77,7 +80,7 @@ def get_data(conf, time_span):
 
     # add columns
     dat['dr'] = np.sqrt(np.array(dat['dx'])**2 + np.array(dat['dy'])**2)
-    r = np.deg2rad(dat['roll'])
+    r = np.deg2rad(dat['CROTA'])
     dat['dx_sc'] = dat['dx'] * np.cos(r) - dat['dy'] * np.sin(r)
     dat['dy_sc'] = dat['dx'] * np.sin(r) + dat['dy'] * np.cos(r)
     dat['dx_sc'] -= 83

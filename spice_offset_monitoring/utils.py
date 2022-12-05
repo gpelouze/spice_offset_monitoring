@@ -1,4 +1,4 @@
-import argparse
+import copy
 import os
 import re
 
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from spice_jitter_correction.utils import SpiceFilename
 
 class SpiceUtils:
     re_spice_L123_filename = re.compile(
@@ -129,18 +130,77 @@ class EuiUtils:
         p = '/archive/SOLAR-ORBITER/EUI/data_internal/' + p
         return p
 
-    @staticmethod
-    def local_L2_path(output_dir, fsi_file_L1):
-        base = os.path.basename(fsi_file_L1)
-        base = base.replace('L1', 'L2')
-        return os.path.join(output_dir, base)
-
 
 class Config(dict):
     def __init__(self, filename):
         with open(filename, 'r') as f:
             conf = yaml.safe_load(f)
         super().__init__(conf)
+
+
+class FilenamesManager(dict):
+    def __init__(self, output_dir, spice_file):
+        self.output_dir = output_dir
+        self.name = spice_file
+        self.basename = os.path.splitext(spice_file)[0]
+
+        self.dirs = {
+            'L2r': 'spice_L2r',
+            'fsi': 'fsi_data',
+            'coalign_input': 'coalign_input',
+            'coalign_output': 'coalign_output',
+            }
+        self.dirs = {k: os.path.join(output_dir, v)
+                     for k, v in self.dirs.items()}
+        for d in self.dirs.values():
+            os.makedirs(d, exist_ok=True)
+
+        files = {
+            'input': {
+                'fits': SpiceUtils.ias_fullpath(spice_file),
+                },
+            'L2r': {
+                'fits': '',  # filled at runtime
+                },
+            'fsi': {
+                'L1_yml': os.path.join(
+                    self.dirs['fsi'],
+                    f'{self.basename}_fsi_info.yml'),
+                'L1_fits': '',  # filled at runtime
+                'L2_fits': '',  # filled at runtime
+                },
+            'coalign_input': {
+                'spice_fits': os.path.join(
+                    self.dirs['coalign_input'],
+                    f'{self.basename}_spice_img.fits'),
+                'fsi_fits': os.path.join(
+                    self.dirs['coalign_input'],
+                    f'{self.basename}_fsi_img.fits'),
+                'preview_pdf': os.path.join(
+                    self.dirs['coalign_input'],
+                    f'{self.basename}.pdf'),
+                },
+            'coalign_output': {
+                'results_yml': os.path.join(
+                    self.dirs['coalign_output'],
+                    f'{self.basename}_coaligned.yml'),
+                'preview_pdf': os.path.join(
+                    self.dirs['coalign_output'],
+                    f'{self.basename}_coaligned.pdf'),
+                'preview_jpg': os.path.join(
+                    self.dirs['coalign_output'],
+                    f'{self.basename}_coaligned.jpg'),
+                },
+            }
+
+        super().__init__(files)
+
+    def fsi_L1_to_L2(self):
+        if not self['fsi']['L1_fits']:
+            raise ValueError('fsi L1_FITS is unset')
+        self['fsi']['L2_fits'] = os.path.join(
+            self.dirs['fsi'],
+            os.path.basename(self['fsi']['L1_fits']).replace('L1', 'L2'))
 
 
 def ang2pipi(ang):

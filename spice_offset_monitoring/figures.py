@@ -234,7 +234,7 @@ def gen_figures(conf):
         f"{conf['plot']['dir']}/coalign_TxTy_sc_all_dsun.pdf",
         )
     plot_offsets(
-        dat_filtered, 'roll', 'Roll angle [°]',
+        dat_filtered, 'CROTA', 'Roll angle [°]',
         f"{conf['plot']['dir']}/coalign_TxTy_sc_all_CROTA.pdf",
         )
 

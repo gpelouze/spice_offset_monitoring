@@ -77,14 +77,13 @@ class PointingResultsExplorer:
 
     def gen_jpg_previews(self):
         for _, row in self.dat.iterrows():
-            plot_pdf = os.path.join(self.conf['plot']['dir'], row.plot_pdf)
-            plot_jpg = os.path.join(self.conf['plot']['dir'], row.plot_jpg)
-            output_folder, output_file = os.path.split(plot_jpg)
+            output_folder, output_file = os.path.split(row.plot_jpg)
             output_file, _ = os.path.splitext(output_file)
-            if os.path.isfile(plot_pdf) and not os.path.isfile(plot_jpg):
-                print(f'Generating {plot_jpg} from {plot_pdf}')
+            if (os.path.isfile(row.plot_pdf)
+                    and not os.path.isfile(row.plot_jpg)):
+                print(f'Generating {row.plot_jpg} from {row.plot_pdf}')
                 pdf2image.convert_from_path(
-                    plot_pdf,
+                    row.plot_pdf,
                     output_folder=output_folder,
                     output_file=output_file,
                     fmt='jpeg',
