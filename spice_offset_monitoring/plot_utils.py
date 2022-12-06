@@ -52,7 +52,6 @@ def get_data(conf, time_span):
 
     dat = []
     for yml_fname in tqdm.tqdm(yml_fnames, desc='Loading data'):
-        print(yml_fname)
         with open(yml_fname, 'r') as f:
             res = yaml.safe_load(f)
         fm = res.pop('filenames')
