@@ -722,7 +722,11 @@ def process_time_span(
             continue
 
         print('Generating SPICE images (L2r_quicklook)')
-        fm['L2r']['fits'] = jitter_corrector.correct(fm['input']['fits'])
+        try:
+            fm['L2r']['fits'] = jitter_corrector.correct(fm['input']['fits'])
+        except ValueError:
+            print('skipping')
+            continue
         if not os.path.isfile(fm['L2r']['fits']):
             print('Could not generate SPICE L2r, skipping')
             continue
