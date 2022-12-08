@@ -118,11 +118,12 @@ if you are not prompted for selektor credentials when running
 
 [`euiprep`] required to prepare L2 FSI files with an accurate position of the
 Sun center, determined by fitting the limb. To install it, clone the
-repository:
+repository and install its dependencies:
 
 ```shell
 cd /path/to/eui_soft
 git clone https://gitlab-as.oma.be/SIDC/SpaceInstruments/eui/
+pip install GitPython opencv-python scikit-image
 ```
 
 and add its location to your `$PYTHONPATH`:
