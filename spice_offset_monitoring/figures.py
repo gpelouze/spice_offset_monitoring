@@ -232,6 +232,11 @@ def gen_figures(conf):
     plot_offsets(
         dat_filtered, 'DSUN_AU', 'Solar distance [au]',
         f"{conf['plot']['dir']}/coalign_TxTy_sc_all_dsun.pdf",
+        fit_func=[plot_utils.FitFunctions.Inverse,
+                  plot_utils.FitFunctions.Constant],
+        filename_residuals=(
+            f"{conf['plot']['dir']}/"
+            f"coalign_TxTy_sc_all_dsun_residuals.pdf"),
         )
     plot_offsets(
         dat_filtered, 'CROTA', 'Roll angle [°]',
@@ -266,4 +271,15 @@ def gen_figures(conf):
         filename_residuals=(
             f"{conf['plot']['dir']}/"
             f"coalign_TxTy_sc_all_RECOMM_residuals.pdf"),
+        )
+
+    # Recommended offset for planning
+    plot_offsets(
+        dat_filtered, 'DSUN_AU', f'Solar distance [au]',
+        f"{conf['plot']['dir']}/coalign_TxTy_sc_all_RECOMM_PLANNING.pdf",
+        fit_func=[plot_utils.FitFunctions.RecommPlanningX,
+                  plot_utils.FitFunctions.RecommPlanningY],
+        filename_residuals=(
+            f"{conf['plot']['dir']}/"
+            f"coalign_TxTy_sc_all_RECOMM_PLANNING_residuals.pdf"),
         )

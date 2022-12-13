@@ -199,9 +199,9 @@ class FitFunctions:
         def label(self, *args, **kwargs):
             return f'$\\Delta Y = - 72.2$'
 
-    class InverseSq(_Base):
+    class Inverse(_Base):
         def __call__(self, x, a, b):
-            return a / x**2 + b
+            return a / x + b
 
         def label(self, y, x, error=True, R2=True, fmt='.2f'):
             fmt = f'{{:{fmt}}}'
@@ -216,9 +216,25 @@ class FitFunctions:
                 b = f'({b} ± {berr})'
             if R2:
                 r2 = '{:.2f}'.format(self.r2())
-                return f'${y} = {a} / {x}² + {b}$ [$R^2 = {r2}$]'
+                return f'${y} = {a} / {x} + {b}$ [$R^2 = {r2}$]'
             else:
-                return f'${y} = {a} / {x}² + {b}$'
+                return f'${y} = {a} / {x} + {b}$'
+
+    class RecommPlanningX(Inverse):
+        def fit(self):
+            self.popt = [6.65, -89.6]
+            self.pcov = None
+
+        def label(self, *args, **kwargs):
+            return f'$\\Delta X = 6.65 / r - 89.6$'
+
+    class RecommPlanningY(Constant):
+        def fit(self):
+            self.popt = [-72.2]
+            self.pcov = None
+
+        def label(self, *args, **kwargs):
+            return f'$\\Delta Y = - 72.2$'
 
 
 class Filters:
