@@ -10,15 +10,6 @@ time_spans:
   - title: 'Synoptic'
     dir: 'output/SYN_Lyg_CIII_new_syn/'
     start_date: '2021-12-01'
-    end_date: '2022-08-30'
-    study_id: 1963
-    spec_win: 'Ly-gamma-CIII group bin (1/4)'
-    plot_marker: 's'
-    # TODO: remove this block after the archive reprocessing, and update start_date of the next one.
-
-  - title: 'Synoptic'
-    dir: 'output/SYN_Lyg_CIII_new_syn/'
-    start_date: '2022-08-30'
     end_date: '2023-12-31'
     study_id: 1963
     spec_win: 'Ly-gamma-CIII group (Merged)'
@@ -27,15 +18,6 @@ time_spans:
   - title: 'RSW'
     dir: 'output/SYN_Lyg_CIII_new_rsw/'
     start_date: '2021-12-01'
-    end_date: '2022-08-30'
-    study_id: 1975
-    spec_win: 'Ly-g-CIII group bin (1/3)'
-    plot_marker: 'D'
-    # TODO: remove this block after the archive reprocessing, and update start_date of the next one.
-
-  - title: 'RSW'
-    dir: 'output/SYN_Lyg_CIII_new_rsw/'
-    start_date: '2022-08-30'
     end_date: '2023-12-31'
     study_id: 1975
     spec_win: 'Ly-g-CIII group (Merged)'

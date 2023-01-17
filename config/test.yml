@@ -12,5 +12,5 @@ time_spans:
     start_date: '2022-01-07'
     end_date: '2022-01-15'
     study_id: 1963
-    spec_win: 'Ly-gamma-CIII group bin (1/4)'
+    spec_win: 'Ly-gamma-CIII group (Merged)'
     plot_marker: 's'
