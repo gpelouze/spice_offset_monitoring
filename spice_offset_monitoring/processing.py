@@ -36,7 +36,7 @@ def list_spice_files(start_date, end_date, study_id):
         Query start date
     end_date : str (YYYY-MM-DD)
         Query end date
-    study_id: str or None (default: None)
+    study_id: int or None (default: None)
         Study id in Miso.
 
     Returns
@@ -44,8 +44,8 @@ def list_spice_files(start_date, end_date, study_id):
     filenames : list of str
         List of FITS
     """
-    if type(study_id) is not str:
-        raise ValueError(f'study_id must be str (got {type(study_id)})')
+    if type(study_id) is not int:
+        raise ValueError(f'study_id must be int (got {type(study_id)})')
 
     cat = utils.SpiceUtils.read_spice_uio_catalog()
     filters = (

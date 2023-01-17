@@ -76,7 +76,7 @@ time_spans:
     dir: 'output/example/SYN_Lyg_CIII_new_syn/'
     start_date: '2022-05-01'
     end_date: '2022-06-01'
-    study_id: '1963'
+    study_id: 1963
     spec_win: 'Ly-gamma-CIII group (Merged)'
     plot_marker: 's'
 ```
