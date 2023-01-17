@@ -692,6 +692,11 @@ def process_time_span(
             print('Results file exists, skipping')
             continue
 
+        # Skip non-existing files
+        if not os.path.isfile(fm['input']['fits']):
+            print('SPICE data not found, skipping')
+            continue
+
         # Skip incomplete files
         with fits.open(fm['input']['fits']) as hdul:
             if hdul[0].header['COMPLETE'] != 'C':
