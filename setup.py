@@ -13,7 +13,7 @@ entry_points = {
 
 setuptools.setup(
     name='spice_offset_monitoring',
-    version='2022.12.13',
+    version='2023.01.17',
     author='Gabriel Pelouze',
     author_email='gabriel.pelouze@universite-paris-saclay.fr',
     description='Monitor the evolution of the pointing offset of SPICE',
