@@ -82,8 +82,6 @@ def get_data(conf, time_span):
     r = np.deg2rad(dat['CROTA'])
     dat['dx_sc'] = dat['dx'] * np.cos(r) - dat['dy'] * np.sin(r)
     dat['dy_sc'] = dat['dx'] * np.sin(r) + dat['dy'] * np.cos(r)
-    dat['dx_sc'] -= 83
-    dat['dy_sc'] -= 68
     # R_cen: Distance between raster center and Sun center
     R_sun = 959.23 / dat['DSUN_AU']  # arcsec
     R = np.sqrt(dat['CRVAL1']**2 + dat['CRVAL2']**2) * 3600  # arcsec

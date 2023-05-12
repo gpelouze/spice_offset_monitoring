@@ -184,13 +184,6 @@ def plot_offsets(
     # remove axes frame
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    # Bill's values
-    ax.axhline(-83, color='C0', ls='--', lw=.5)
-    ax.axhline(-68, color='C1', ls='--', lw=.5)
-    x0, x1 = ax.get_xlim()
-    x = x1  # + (x1 - x0) / 50
-    ax.text(x, -83, '−83″', color='C0', fontsize=10, ha='center', va='bottom')
-    ax.text(x, -68, '−68″', color='C1', fontsize=10, ha='center', va='bottom')
     # date
     if date:
         ax.xaxis.set_major_locator(
