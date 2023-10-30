@@ -1,12 +1,18 @@
 # Editors
 .*.swp
 *~
+.idea/
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 env/
+.python-version
 
 # Project
-output/
+output
+data
+dependencies
+tests
+checks
