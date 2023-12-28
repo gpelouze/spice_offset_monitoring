@@ -12,7 +12,7 @@ from dateutil.parser import parse as parse_date
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate as si
-import spiceypy.utils.exceptions
+import spiceypy
 import yaml
 
 from eui.euiprep import euiprep
@@ -195,6 +195,102 @@ def gen_fsi_L2(fsi_file_L1, fsi_file_L2):
         euimap_L2.save_fits(fsi_file_L2)
 
 
+class AberrationCorrector:
+    def __init__(self):
+        # This loads the SPICE kernel. It should not be removed, even if _ssp
+        # is not used in the class
+        self._ssp = spice_stew.SpiceSpicePointing()
+        spiceypy.furnsh(os.path.join(
+            os.path.dirname(__file__),
+            'solo_solar_mhp_no_abscorr.tf',
+            ))
+
+    @staticmethod
+    def _boresight_to_crvals(
+            Tx: u.arcsec,
+            Ty: u.arcsec,
+            roll: u.deg,
+            header: fits.header,
+            ) -> (u.arcsec, u.arcsec):
+        SOLO_SPICE_OFFSET_X = u.Quantity(-74.416044, 'arcsec')
+        SOLO_SPICE_OFFSET_Y = u.Quantity(-72.4, 'arcsec')
+        XSTART = u.Quantity(header['XSTART'], 'arcsec')
+        CDELT1 = u.Quantity(header['CDELT1'], 'arcsec')
+        NAXIS1 = header['NAXIS1']
+        DX = - SOLO_SPICE_OFFSET_X - XSTART + ((NAXIS1 - 1) * CDELT1) / 2
+        DY = SOLO_SPICE_OFFSET_Y
+        CRVAL1 = Tx - DX * np.cos(roll) - DY * np.sin(roll)
+        CRVAL2 = Ty - DX * np.sin(roll) + DY * np.cos(roll)
+        return CRVAL1, CRVAL2
+
+    @staticmethod
+    def _compute_xyr(
+            frame: str,
+            t: str,
+            ) -> (u.arcsec, u.arcsec, u.deg):
+        et = spiceypy.str2et(t)
+        rot_mat = spiceypy.pxform(frame, 'SOLO_SPICE_LW_OPT', et)
+        (a, b, c), (d, e, f), (g, h, i) = rot_mat
+        rot_mat = np.array([
+            [-c, -a, -b],
+            [-f, -d, -e],
+            [i, g, h],
+            ])
+        r, b, a = spiceypy.m2eul(rot_mat, 1, 2, 3)
+        Tx = u.Quantity(-a, 'rad').to('arcsec')
+        Ty = u.Quantity(-b, 'rad').to('arcsec')
+        roll = u.Quantity(-r, 'rad').to('deg')
+        return Tx, Ty, roll
+
+    def _compute_aberration(
+            self,
+            header: fits.header,
+            in_crval: bool = False,
+            ) -> (u.arcsec, u.arcsec):
+        t = header['DATE-AVG']
+        Tx_aberr, Ty_aberr, roll_aberr = self._compute_xyr('SOLO_SOLAR_MHP', t)
+        Tx_noaberr, Ty_noaberr, roll_noaberr = self._compute_xyr('SOLO_SOLAR_MHP_NO_ABSCORR', t)
+        # Note: SOLO_SOLAR_MHP_NO_ABSCORR `is a custom-defined frame, identical
+        # to SOLO_SOLAR_MHP, but with PRI_ABCORR set to 'NONE' instead of
+        # 'LT+S'. This is done by adding the following lines to
+        # $SPICE_KERNELS_SOLO/fk/solo_ANC_soc-sci-fk_V08.tf (or later version):
+        #
+        # \begindata
+        # FRAME_SOLO_SOLAR_MHP_NO_ABSCORR= -244992
+        # FRAME_-244992_NAME             = 'SOLO_SOLAR_MHP_NO_ABSCORR'
+        # FRAME_-244992_CLASS            =  5
+        # FRAME_-244992_CLASS_ID         = -244992
+        # FRAME_-244992_CENTER           = -144
+        # FRAME_-244992_RELATIVE         = 'J2000'
+        # FRAME_-244992_DEF_STYLE        = 'PARAMETERIZED'
+        # FRAME_-244992_FAMILY           = 'TWO-VECTOR'
+        # FRAME_-244992_PRI_AXIS         = 'Z'
+        # FRAME_-244992_PRI_VECTOR_DEF   = 'OBSERVER_TARGET_POSITION'
+        # FRAME_-244992_PRI_OBSERVER     = 'SOLO'
+        # FRAME_-244992_PRI_TARGET       = 'SUN'
+        # FRAME_-244992_PRI_ABCORR       = 'NONE'
+        # FRAME_-244992_SEC_AXIS         = 'Y'
+        # FRAME_-244992_SEC_VECTOR_DEF   = 'CONSTANT'
+        # FRAME_-244992_SEC_FRAME        = 'IAU_SUN'
+        # FRAME_-244992_SEC_SPEC         = 'RECTANGULAR'
+        # FRAME_-244992_SEC_VECTOR       = ( 0, 0, 1 )
+        # \begintext
+        if in_crval:
+            Tx_aberr, Ty_aberr = self._boresight_to_crvals(Tx_aberr, Ty_aberr, roll_aberr, header)
+            Tx_noaberr, Ty_noaberr = self._boresight_to_crvals(Tx_noaberr, Ty_noaberr, roll_noaberr, header)
+        ab_Tx = Tx_aberr - Tx_noaberr
+        ab_Ty = Ty_aberr - Ty_noaberr
+        # Note: roll_aberr - roll_noaberr is 1.5e-3 deg at most
+        return - ab_Tx, - ab_Ty
+
+    def correct_header(self, header: fits.header) -> fits.header:
+        Ab_Tx, Ab_Ty = self._compute_aberration(header, in_crval=True)
+        new_header = header.copy()
+        new_header['CRVAL1'] = header['CRVAL1'] - Ab_Tx.to('arcsec').value
+        new_header['CRVAL2'] = header['CRVAL2'] - Ab_Ty.to('arcsec').value
+        return new_header
+
+
 class JitterCorrector:
     def __init__(
             self,
@@ -214,6 +310,7 @@ class JitterCorrector:
 
         if 'kernels' in self.methods:
             self._ssp = spice_stew.SpiceSpicePointing()
+        self._aberration_corrector = AberrationCorrector()
 
     def _get_output_filename(self, filename):
         filename = SpiceFilename(filename)
@@ -252,7 +349,6 @@ class JitterCorrector:
         except spiceypy.utils.exceptions.SpiceNOFRAMECONNECT:
             raise ValueError
 
-    @staticmethod
     def tweak_header(self, header):
         """ Tweak the header of FITS generated by the 'dummy' method.
 
@@ -265,7 +361,7 @@ class JitterCorrector:
         header: astropy.fits.Header
             FITS header (modified in place)
         """
-        pass
+        return self._aberration_corrector.correct_header(header)
 
     def dummy(self, filename):
         output_fits = self._get_output_filename(filename)
