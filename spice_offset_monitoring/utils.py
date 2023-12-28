@@ -57,13 +57,14 @@ class SpiceUtils:
         """
         cat_file = os.path.join(
             os.getenv('SOLO_ARCHIVE', '/archive/SOLAR-ORBITER/'),
-            'SPICE/fits/spice_catalog.txt'
+            'SPICE/fits/spice_catalog.csv'
             )
-        columns = list(pd.read_csv(cat_file, nrows=0).keys())
         date_columns = ['DATE-BEG', 'DATE', 'TIMAQUTC']
-        df = pd.read_table(
-            cat_file, skiprows=1, names=columns, na_values="MISSING",
-            parse_dates=date_columns, low_memory=False
+        df = pd.read_csv(
+            cat_file,
+            na_values="MISSING",
+            parse_dates=date_columns,
+            low_memory=False,
             )
         df.LEVEL = df.LEVEL.apply(lambda string: string.strip())
         df.STUDYTYP = df.STUDYTYP.apply(lambda string: string.strip())
