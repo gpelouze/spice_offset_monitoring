@@ -285,10 +285,8 @@ class AberrationCorrector:
 
     def correct_header(self, header: fits.header) -> fits.header:
         Ab_Tx, Ab_Ty = self._compute_aberration(header, in_crval=True)
-        new_header = header.copy()
-        new_header['CRVAL1'] = header['CRVAL1'] - Ab_Tx.to('arcsec').value
-        new_header['CRVAL2'] = header['CRVAL2'] - Ab_Ty.to('arcsec').value
-        return new_header
+        header['CRVAL1'] = header['CRVAL1'] - Ab_Tx.to('arcsec').value
+        header['CRVAL2'] = header['CRVAL2'] - Ab_Ty.to('arcsec').value
 
 
 class JitterCorrector:
@@ -361,7 +359,7 @@ class JitterCorrector:
         header: astropy.fits.Header
             FITS header (modified in place)
         """
-        return self._aberration_corrector.correct_header(header)
+        self._aberration_corrector.correct_header(header)
 
     def dummy(self, filename):
         output_fits = self._get_output_filename(filename)
